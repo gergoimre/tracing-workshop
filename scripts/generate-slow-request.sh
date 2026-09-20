@@ -11,17 +11,16 @@ echo ""
 
 for i in $(seq 1 "$COUNT"); do
   echo -n "  Request ${i}/${COUNT} ... "
-  start=$(date +%s%3N)
+  start=$SECONDS
   response=$(curl -s -w "\n%{http_code}" -X POST "${BASE_URL}/transfers/prepare" \
     -H "Content-Type: application/json" \
     -d '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000}')
-  end=$(date +%s%3N)
-  elapsed=$(( end - start ))
+  elapsed=$(( SECONDS - start ))
   status=$(echo "$response" | tail -1)
   body_out=$(echo "$response" | head -1)
   if [ "$status" = "200" ]; then
     strategy=$(echo "$body_out" | grep -o '"pricingStrategy":"[^"]*"' | cut -d'"' -f4)
-    echo "OK — ${elapsed}ms (strategy=${strategy})"
+    echo "OK — ~${elapsed}s (strategy=${strategy})"
   else
     echo "FAILED (HTTP ${status})"
   fi

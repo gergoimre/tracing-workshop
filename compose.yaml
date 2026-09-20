@@ -1,6 +1,8 @@
 name: tracing-workshop
 
 # ── Shared build context ───────────────────────────────────────────────────────
+# The application jar is built on the host before docker compose up --build.
+# The Dockerfile copies the pre-built jar from app/build/libs/.
 x-app-build: &app-build
   context: .
   dockerfile: docker/Dockerfile
@@ -44,12 +46,9 @@ services:
     depends_on:
       tempo:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:13133"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 5s
+    # The collector image is distroless (no shell/wget/curl) — no healthcheck probe.
+    # App services use depends_on: tempo (healthy) + start_period to ensure
+    # the collector is up before they start sending traces.
 
   grafana:
     image: grafana/grafana:11.3.0
@@ -87,14 +86,18 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      otel-collector:
+      tempo:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 600m
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
       interval: 5s
       timeout: 5s
       retries: 20
-      start_period: 40s
+      start_period: 60s
 
   support:
     build: *app-build
@@ -107,14 +110,18 @@ services:
     ports:
       - "8083:8083"
     depends_on:
-      otel-collector:
+      tempo:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 600m
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
       interval: 5s
       timeout: 5s
       retries: 20
-      start_period: 40s
+      start_period: 60s
 
   pricing:
     build: *app-build
@@ -133,14 +140,16 @@ services:
         condition: service_healthy
       support:
         condition: service_healthy
-      otel-collector:
-        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 600m
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
       interval: 5s
       timeout: 5s
       retries: 20
-      start_period: 40s
+      start_period: 60s
 
   transfer:
     build: *app-build
@@ -159,14 +168,16 @@ services:
         condition: service_healthy
       support:
         condition: service_healthy
-      otel-collector:
-        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 600m
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 5s
       timeout: 5s
       retries: 20
-      start_period: 40s
+      start_period: 60s
 
   # ── Ready banner ─────────────────────────────────────────────────────────────
   workshop-ready:

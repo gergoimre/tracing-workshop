@@ -1,4 +1,4 @@
-From 8cd751aca6309ffb14c48793db5a3a40ad83ff0c Mon Sep 17 00:00:00 2001
+From 4cc87cfc963c5e58393868951a7d0207cff194de Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gergo=CC=8B=20Imre?= <gergo.imre@wise.com>
 Date: Sun, 20 Sep 2026 19:04:47 +0200
 Subject: [PATCH] Apply fixes: concurrent FX coroutines + compliance batch call
@@ -84,7 +84,7 @@ index 4bf6fdf..8d65e1f 100644
              // 4. Pricing
              val pricing = pricingClient.calculate(
 diff --git a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
-index a34e693..3d4df34 100644
+index 5bab1c6..bb7b91b 100644
 --- a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
 +++ b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
 @@ -6,7 +6,6 @@ import com.workshop.common.RoutingCandidatesResponse
