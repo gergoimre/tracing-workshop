@@ -1,0 +1,9 @@
+.gradle/
+build/
+*.jar
+!docker/opentelemetry-javaagent.jar
+!gradle/wrapper/gradle-wrapper.jar
+.env
+.DS_Store
+*.class
+out/

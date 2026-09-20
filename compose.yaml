@@ -1,0 +1,193 @@
+name: tracing-workshop
+
+# ── Shared build context ───────────────────────────────────────────────────────
+x-app-build: &app-build
+  context: .
+  dockerfile: docker/Dockerfile
+
+# ── Shared OTel environment ────────────────────────────────────────────────────
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_METRICS_EXPORTER: none
+  OTEL_LOGS_EXPORTER: none
+  OTEL_TRACES_SAMPLER: always_on
+  OTEL_PROPAGATORS: tracecontext,baggage
+
+services:
+
+  # ── Observability stack ──────────────────────────────────────────────────────
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3200/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otel-collector.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      tempo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:13133"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    volumes:
+      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      tempo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ── Application services ─────────────────────────────────────────────────────
+
+  fx:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: fx
+      OTEL_SERVICE_NAME: fx-service
+      SERVER_PORT: "8082"
+      FX_DELAY_MS: "1000"
+    ports:
+      - "8082:8082"
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  support:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: support
+      OTEL_SERVICE_NAME: support-service
+      SERVER_PORT: "8083"
+    ports:
+      - "8083:8083"
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  pricing:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: pricing
+      OTEL_SERVICE_NAME: pricing-service
+      SERVER_PORT: "8081"
+      FX_URL: http://fx:8082
+      SUPPORT_URL: http://support:8083
+    ports:
+      - "8081:8081"
+    depends_on:
+      fx:
+        condition: service_healthy
+      support:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  transfer:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: transfer
+      OTEL_SERVICE_NAME: transfer-service
+      SERVER_PORT: "8080"
+      PRICING_URL: http://pricing:8081
+      SUPPORT_URL: http://support:8083
+    ports:
+      - "8080:8080"
+    depends_on:
+      pricing:
+        condition: service_healthy
+      support:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  # ── Ready banner ─────────────────────────────────────────────────────────────
+  workshop-ready:
+    image: alpine:3.20
+    depends_on:
+      transfer:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo ""
+        echo "╔══════════════════════════════════════════╗"
+        echo "║      Workshop environment is ready!      ║"
+        echo "╠══════════════════════════════════════════╣"
+        echo "║  API:     http://localhost:8080          ║"
+        echo "║  Grafana: http://localhost:3000          ║"
+        echo "╚══════════════════════════════════════════╝"
+        echo ""
+    restart: "no"
+
+volumes:
+  tempo-data:

@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: ${APP_ROLE:workshop-app}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+workshop:
+  pricing-url: ${PRICING_URL:http://localhost:8081}
+  fx-url: ${FX_URL:http://localhost:8082}
+  support-url: ${SUPPORT_URL:http://localhost:8083}
+
+fx:
+  delay-ms: ${FX_DELAY_MS:1000}
