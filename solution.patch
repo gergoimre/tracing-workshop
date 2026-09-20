@@ -1,0 +1,128 @@
+From 8cd751aca6309ffb14c48793db5a3a40ad83ff0c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Gergo=CC=8B=20Imre?= <gergo.imre@wise.com>
+Date: Sun, 20 Sep 2026 19:04:47 +0200
+Subject: [PATCH] Apply fixes: concurrent FX coroutines + compliance batch call
+ + enable regression tests
+
+---
+ .../com/workshop/pricing/PricingController.kt | 18 ++++++------------
+ .../workshop/transfer/TransferController.kt   | 19 ++-----------------
+ .../pricing/PricingConcurrencyTest.kt         |  2 --
+ .../workshop/transfer/ComplianceFanoutTest.kt |  2 --
+ 4 files changed, 8 insertions(+), 33 deletions(-)
+
+diff --git a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
+index db8cf42..9788562 100644
+--- a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
++++ b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
+@@ -6,6 +6,7 @@ import io.opentelemetry.api.GlobalOpenTelemetry
+ import io.opentelemetry.api.trace.SpanKind
+ import io.opentelemetry.context.Context
+ import kotlinx.coroutines.async
++import kotlinx.coroutines.awaitAll
+ import kotlinx.coroutines.coroutineScope
+ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+ import org.springframework.web.bind.annotation.PostMapping
+@@ -47,24 +48,17 @@ class PricingController(
+             span.setAttribute("pricing.strategy", strategy.name)
+             span.setAttribute("pricing.route_candidate_count", candidates.size.toLong())
+ 
+-            // ──────────────────────────────────────────────────────────────────
+-            // BUG #1: The async { }.await() pattern inside map looks concurrent
+-            // but forces sequential execution — each coroutine is started and
+-            // immediately awaited before the next one is launched.
+-            //
+-            // The fix (in solution.patch) is:
+-            //   coroutineScope { candidates.map { async { fxClient.getRate(...) } }.awaitAll() }
+-            // ──────────────────────────────────────────────────────────────────
+-            val rates = candidates.map { candidate ->
+-                coroutineScope {
++            // All FX requests are launched concurrently and awaited together.
++            val rates = coroutineScope {
++                candidates.map { candidate ->
+                     async {
+                         fxClient.getRate(
+                             request.sourceCurrency,
+                             request.targetCurrency,
+                             candidate
+                         )
+-                    }.await()  // <-- awaited immediately: sequential, not concurrent
+-                }
++                    }
++                }.awaitAll()
+             }
+ 
+             val best = rates.minByKey { it.rate }
+diff --git a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
+index 4bf6fdf..8d65e1f 100644
+--- a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
++++ b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
+@@ -41,23 +41,8 @@ class TransferController(
+             // 2. Limits check
+             supportClient.getLimits(customer.customerId)
+ 
+-            // ──────────────────────────────────────────────────────────────────
+-            // BUG #2: N+1 compliance fan-out.
+-            // Each beneficiary is screened with a separate HTTP call instead of
+-            // one batched call. This is always-on — every transfer goes through
+-            // this path regardless of currency or amount.
+-            //
+-            // The bug looks like ordinary per-item validation in code.
+-            // In logs: N separate 200 OK responses, nothing anomalous.
+-            // In a trace: N identical sibling compliance.screen spans are
+-            // immediately visible in the waterfall.
+-            //
+-            // The fix (in solution.patch) is:
+-            //   supportClient.screenComplianceBatch(customer.beneficiaries)
+-            // ──────────────────────────────────────────────────────────────────
+-            customer.beneficiaries.mapIndexed { index, beneficiary ->
+-                supportClient.screenCompliance(beneficiary.id, index)
+-            }
++            // Single batch compliance call for all beneficiaries.
++            supportClient.screenComplianceBatch(customer.beneficiaries)
+ 
+             // 4. Pricing
+             val pricing = pricingClient.calculate(
+diff --git a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
+index a34e693..3d4df34 100644
+--- a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
++++ b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
+@@ -6,7 +6,6 @@ import com.workshop.common.RoutingCandidatesResponse
+ import io.mockk.coEvery
+ import io.mockk.mockk
+ import kotlinx.coroutines.test.runTest
+-import org.junit.jupiter.api.Disabled
+ import org.junit.jupiter.api.Test
+ import kotlin.test.assertTrue
+ import kotlin.time.Duration.Companion.milliseconds
+@@ -23,7 +22,6 @@ import kotlin.time.measureTime
+  * TODO (workshop): Enable this test after applying the fix from solution.patch.
+  *   The test will fail on the buggy code and pass after the fix.
+  */
+-@Disabled("Enable after applying solution.patch — see WORKSHOP.md Step 9")
+ class PricingConcurrencyTest {
+ 
+     private val fxDelayMs = 200L   // short delay so the test stays fast
+diff --git a/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt b/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
+index b673b26..cd38f18 100644
+--- a/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
++++ b/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
+@@ -3,7 +3,6 @@ package com.workshop.transfer
+ import com.workshop.common.*
+ import io.mockk.*
+ import kotlinx.coroutines.test.runTest
+-import org.junit.jupiter.api.Disabled
+ import org.junit.jupiter.api.Test
+ import kotlin.test.assertEquals
+ 
+@@ -18,7 +17,6 @@ import kotlin.test.assertEquals
+  * TODO (workshop): Enable this test after applying the fix from solution.patch.
+  *   The test will fail on the buggy code and pass after the fix.
+  */
+-@Disabled("Enable after applying solution.patch — see WORKSHOP.md Step 9")
+ class ComplianceFanoutTest {
+ 
+     @Test
+-- 
+2.50.1 (Apple Git-155)
+

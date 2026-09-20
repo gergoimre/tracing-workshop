@@ -57,9 +57,10 @@ class PricingConcurrencyTest {
         // If requests run sequentially: ~600ms. Concurrently: ~200ms.
         // Allow 1.8× the single delay as a generous upper bound.
         val maxAllowed = (fxDelayMs * 1.8).milliseconds
-        assertTrue(elapsed < maxAllowed) {
+        assertTrue(
+            elapsed < maxAllowed,
             "Expected FX requests to run concurrently (~${fxDelayMs}ms) " +
             "but total was ${elapsed}. They appear to be sequential."
-        }
+        )
     }
 }
