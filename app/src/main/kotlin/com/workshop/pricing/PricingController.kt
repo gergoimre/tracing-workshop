@@ -3,6 +3,7 @@ package com.workshop.pricing
 import com.workshop.common.PricingRequest
 import com.workshop.common.PricingResponse
 import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.context.Context
 import kotlinx.coroutines.async
@@ -24,29 +25,37 @@ class PricingController(
 
     @PostMapping("/calculate")
     suspend fun calculate(@RequestBody request: PricingRequest): PricingResponse {
-        val span = tracer.spanBuilder("pricing.calculate")
-            .setSpanKind(SpanKind.SERVER)
-            .setParent(Context.current())
+        // The agent already created the SERVER span for POST /pricing/calculate.
+        // We capture it as the parent so pricing.calculate sits directly under it.
+        val agentServerSpan = Span.current()
+        val serverContext = Context.current()
+
+        val strategy = StrategyRules.resolve(
+            request.sourceCurrency,
+            request.targetCurrency,
+            request.transferType,
+            request.amountBucket
+        )
+
+        val candidates = routingClient.getCandidates(
+            request.sourceCurrency,
+            request.targetCurrency,
+            request.transferType,
+            request.amountBucket
+        ).candidates
+
+        // Create pricing.calculate as an INTERNAL child of the agent's server span.
+        val pricingSpan = tracer.spanBuilder("pricing.calculate")
+            .setSpanKind(SpanKind.INTERNAL)
+            .setParent(serverContext)
             .startSpan()
-        val scope = span.makeCurrent()
+        pricingSpan.setAttribute("pricing.strategy", strategy.name)
+        pricingSpan.setAttribute("pricing.route_candidate_count", candidates.size.toLong())
+
+        // Build a context with pricingSpan as current so fx.call spans nest under it.
+        val pricingContext = serverContext.with(pricingSpan)
+
         return try {
-            val strategy = StrategyRules.resolve(
-                request.sourceCurrency,
-                request.targetCurrency,
-                request.transferType,
-                request.amountBucket
-            )
-
-            val candidates = routingClient.getCandidates(
-                request.sourceCurrency,
-                request.targetCurrency,
-                request.transferType,
-                request.amountBucket
-            ).candidates
-
-            span.setAttribute("pricing.strategy", strategy.name)
-            span.setAttribute("pricing.route_candidate_count", candidates.size.toLong())
-
             // ──────────────────────────────────────────────────────────────────
             // BUG #1: The async { }.await() pattern inside map looks concurrent
             // but forces sequential execution — each coroutine is started and
@@ -61,7 +70,8 @@ class PricingController(
                         fxClient.getRate(
                             request.sourceCurrency,
                             request.targetCurrency,
-                            candidate
+                            candidate,
+                            pricingContext
                         )
                     }.await()  // <-- awaited immediately: sequential, not concurrent
                 }
@@ -77,8 +87,7 @@ class PricingController(
                 routeType = best.routeType
             )
         } finally {
-            scope.close()
-            span.end()
+            pricingSpan.end()
         }
     }
 }

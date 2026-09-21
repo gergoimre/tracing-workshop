@@ -1,9 +1,9 @@
 package com.workshop.support
 
 import com.workshop.common.*
+import io.opentelemetry.api.trace.Span
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.*
-import java.util.UUID
 
 @RestController
 @ConditionalOnProperty(name = ["APP_ROLE"], havingValue = "support")
@@ -33,8 +33,12 @@ class SupportController {
     // ── Compliance — single (used by the buggy transfer service) ──────────────
 
     @PostMapping("/compliance/screen")
-    fun screenSingle(@RequestBody request: ComplianceScreenRequest): ComplianceResult =
-        ComplianceResult(beneficiaryId = request.beneficiaryId, cleared = true)
+    fun screenSingle(@RequestBody request: ComplianceScreenRequest): ComplianceResult {
+        // Enrich the agent's span with the beneficiary index so each repeated
+        // span is distinguishable in the waterfall.
+        Span.current().setAttribute("compliance.beneficiary_index", request.beneficiaryIndex.toLong())
+        return ComplianceResult(beneficiaryId = request.beneficiaryId, cleared = true)
+    }
 
     // ── Compliance — batch (used after fix) ───────────────────────────────────
 
