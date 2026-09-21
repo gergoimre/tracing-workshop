@@ -4,9 +4,8 @@ set -euo pipefail
 BASE_URL="${TRANSFER_URL:-http://localhost:8080}"
 COUNT="${1:-3}"
 
-echo "Generating ${COUNT} slow request(s) — EUR→BRL BANK_TRANSFER 15000"
+echo "Generating ${COUNT} request(s) — EUR→BRL BANK_TRANSFER 15000"
 echo "Target: ${BASE_URL}"
-echo "This request activates the MULTI_ROUTE pricing strategy."
 echo ""
 
 for i in $(seq 1 "$COUNT"); do
@@ -19,8 +18,7 @@ for i in $(seq 1 "$COUNT"); do
   status=$(echo "$response" | tail -1)
   body_out=$(echo "$response" | head -1)
   if [ "$status" = "200" ]; then
-    strategy=$(echo "$body_out" | grep -o '"pricingStrategy":"[^"]*"' | cut -d'"' -f4)
-    echo "OK — ~${elapsed}s (strategy=${strategy})"
+    echo "OK — ~${elapsed}s"
   else
     echo "FAILED (HTTP ${status})"
   fi

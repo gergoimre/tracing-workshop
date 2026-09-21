@@ -4,7 +4,7 @@ set -euo pipefail
 BASE_URL="${TRANSFER_URL:-http://localhost:8080}"
 ROUNDS="${1:-3}"
 
-echo "Generating mixed traffic — ${ROUNDS} round(s) of fast requests"
+echo "Generating mixed traffic — ${ROUNDS} round(s)"
 echo "Target: ${BASE_URL}"
 echo ""
 
@@ -18,8 +18,7 @@ fast_request() {
   status=$(echo "$response" | tail -1)
   body_out=$(echo "$response" | head -1)
   if [ "$status" = "200" ]; then
-    strategy=$(echo "$body_out" | grep -o '"pricingStrategy":"[^"]*"' | cut -d'"' -f4)
-    echo "OK (strategy=${strategy})"
+    echo "OK"
   else
     echo "FAILED (HTTP ${status})"
   fi
@@ -28,17 +27,17 @@ fast_request() {
 for i in $(seq 1 "$ROUNDS"); do
   echo "Round ${i}/${ROUNDS}:"
 
-  fast_request "EUR→USD 15000 (fast)" \
+  fast_request "EUR→USD 15000" \
     '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":15000}'
 
-  fast_request "EUR→BRL 500  (fast, small amount)" \
+  fast_request "EUR→BRL 500" \
     '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":500}'
 
-  fast_request "GBP→BRL 15000 (fast, wrong source)" \
+  fast_request "GBP→BRL 15000" \
     '{"sourceCurrency":"GBP","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000}'
 
   echo ""
 done
 
 echo "Done. Open Grafana at http://localhost:3000 and explore the traces."
-echo "Hint: compare these fast traces with the slow one from generate-slow-request.sh"
+echo "Next: run ./scripts/generate-slow-request.sh and compare traces in Grafana."
