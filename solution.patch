@@ -1,21 +1,21 @@
-From 25c26f5f342bc0c0b68deb15885f7a68d7d6ed0b Mon Sep 17 00:00:00 2001
+From fa86cfab3e551e96cff5534111ee8b200e91dd73 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gergo=CC=8B=20Imre?= <gergo.imre@wise.com>
 Date: Sun, 20 Sep 2026 19:04:47 +0200
 Subject: [PATCH] Apply fixes: concurrent FX coroutines + compliance batch call
  + enable regression tests
 
 ---
- .../com/workshop/pricing/PricingController.kt | 18 ++++++------------
- .../workshop/transfer/TransferController.kt   | 19 ++-----------------
+ .../com/workshop/pricing/PricingController.kt | 22 +++++--------------
+ .../workshop/transfer/TransferController.kt   | 21 ++----------------
  .../pricing/PricingConcurrencyTest.kt         |  2 --
  .../workshop/transfer/ComplianceFanoutTest.kt |  2 --
- 4 files changed, 8 insertions(+), 33 deletions(-)
+ 4 files changed, 8 insertions(+), 39 deletions(-)
 
 diff --git a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-index db8cf42..9788562 100644
+index 2b6c564..d8d76e5 100644
 --- a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
 +++ b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-@@ -6,6 +6,7 @@ import io.opentelemetry.api.GlobalOpenTelemetry
+@@ -7,6 +7,7 @@ import io.opentelemetry.api.trace.Span
  import io.opentelemetry.api.trace.SpanKind
  import io.opentelemetry.context.Context
  import kotlinx.coroutines.async
@@ -23,10 +23,31 @@ index db8cf42..9788562 100644
  import kotlinx.coroutines.coroutineScope
  import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
  import org.springframework.web.bind.annotation.PostMapping
-@@ -47,24 +48,17 @@ class PricingController(
-             span.setAttribute("pricing.strategy", strategy.name)
-             span.setAttribute("pricing.route_candidate_count", candidates.size.toLong())
+@@ -25,8 +26,6 @@ class PricingController(
  
+     @PostMapping("/calculate")
+     suspend fun calculate(@RequestBody request: PricingRequest): PricingResponse {
+-        // The agent already created the SERVER span for POST /pricing/calculate.
+-        // We capture it as the parent so pricing.calculate sits directly under it.
+         val agentServerSpan = Span.current()
+         val serverContext = Context.current()
+ 
+@@ -44,7 +43,6 @@ class PricingController(
+             request.amountBucket
+         ).candidates
+ 
+-        // Create pricing.calculate as an INTERNAL child of the agent's server span.
+         val pricingSpan = tracer.spanBuilder("pricing.calculate")
+             .setSpanKind(SpanKind.INTERNAL)
+             .setParent(serverContext)
+@@ -52,20 +50,12 @@ class PricingController(
+         pricingSpan.setAttribute("pricing.strategy", strategy.name)
+         pricingSpan.setAttribute("pricing.route_candidate_count", candidates.size.toLong())
+ 
+-        // Build a context with pricingSpan as current so fx.call spans nest under it.
+         val pricingContext = serverContext.with(pricingSpan)
+ 
+         return try {
 -            // ──────────────────────────────────────────────────────────────────
 -            // BUG #1: The async { }.await() pattern inside map looks concurrent
 -            // but forces sequential execution — each coroutine is started and
@@ -43,8 +64,9 @@ index db8cf42..9788562 100644
                      async {
                          fxClient.getRate(
                              request.sourceCurrency,
-                             request.targetCurrency,
-                             candidate
+@@ -73,8 +63,8 @@ class PricingController(
+                             candidate,
+                             pricingContext
                          )
 -                    }.await()  // <-- awaited immediately: sequential, not concurrent
 -                }
@@ -54,35 +76,44 @@ index db8cf42..9788562 100644
  
              val best = rates.minByKey { it.rate }
 diff --git a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
-index 4bf6fdf..8d65e1f 100644
+index f6be647..53f3bbc 100644
 --- a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
 +++ b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
-@@ -41,23 +41,8 @@ class TransferController(
-             // 2. Limits check
-             supportClient.getLimits(customer.customerId)
+@@ -21,8 +21,6 @@ class TransferController(
+     suspend fun prepare(@RequestBody request: PrepareTransferRequest): PrepareTransferResponse {
+         val bucket = amountBucket(request.amount)
  
--            // ──────────────────────────────────────────────────────────────────
--            // BUG #2: N+1 compliance fan-out.
--            // Each beneficiary is screened with a separate HTTP call instead of
--            // one batched call. This is always-on — every transfer goes through
--            // this path regardless of currency or amount.
--            //
--            // The bug looks like ordinary per-item validation in code.
--            // In logs: N separate 200 OK responses, nothing anomalous.
--            // In a trace: N identical sibling compliance.screen spans are
--            // immediately visible in the waterfall.
--            //
--            // The fix (in solution.patch) is:
--            //   supportClient.screenComplianceBatch(customer.beneficiaries)
--            // ──────────────────────────────────────────────────────────────────
--            customer.beneficiaries.mapIndexed { index, beneficiary ->
--                supportClient.screenCompliance(beneficiary.id, index)
--            }
-+            // Single batch compliance call for all beneficiaries.
-+            supportClient.screenComplianceBatch(customer.beneficiaries)
+-        // The OTel agent already created the root SERVER span for this HTTP request.
+-        // We just enrich it with business attributes — no new span needed.
+         val span = Span.current()
+         span.setAttribute("transfer.source_currency", request.sourceCurrency)
+         span.setAttribute("transfer.target_currency", request.targetCurrency)
+@@ -35,23 +33,8 @@ class TransferController(
+         // 2. Limits check
+         supportClient.getLimits(customer.customerId)
  
-             // 4. Pricing
-             val pricing = pricingClient.calculate(
+-        // ──────────────────────────────────────────────────────────────────
+-        // BUG #2: N+1 compliance fan-out.
+-        // Each beneficiary is screened with a separate HTTP call instead of
+-        // one batched call. This is always-on — every transfer goes through
+-        // this path regardless of currency or amount.
+-        //
+-        // The bug looks like ordinary per-item validation in code.
+-        // In logs: N separate 200 OK responses, nothing anomalous.
+-        // In a trace: N identical sibling compliance.screen spans are
+-        // immediately visible in the waterfall.
+-        //
+-        // The fix (in solution.patch) is:
+-        //   supportClient.screenComplianceBatch(customer.beneficiaries)
+-        // ──────────────────────────────────────────────────────────────────
+-        customer.beneficiaries.mapIndexed { index, beneficiary ->
+-            supportClient.screenCompliance(beneficiary.id, index)
+-        }
++        // Single batch compliance call for all beneficiaries.
++        supportClient.screenComplianceBatch(customer.beneficiaries)
+ 
+         // 4. Pricing
+         val pricing = pricingClient.calculate(
 diff --git a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
 index 5bab1c6..bb7b91b 100644
 --- a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
