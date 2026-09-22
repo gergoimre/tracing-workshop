@@ -12,7 +12,7 @@ docker compose up --build
 ./scripts/verify-environment.sh
 ```
 
-Generate a baseline of fast requests first:
+Generate a baseline of requests first:
 
 ```bash
 ./scripts/generate-traffic.sh
@@ -37,66 +37,56 @@ the logs look clean and every service returns 200 OK.
 Note the elapsed time printed in the terminal.
 
 ```bash
-# Or run it manually:
 curl -s -X POST http://localhost:8080/transfers/prepare \
   -H "Content-Type: application/json" \
-  -d '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000}'
+  -d '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000,"recipientId":"rec-2"}'
 ```
 
 ### Step 2 — Find slow traces in Grafana
 
 1. Open http://localhost:3000
-2. Go to **Explore** → select **Tempo**
-3. Open the **Workshop — Trace Explorer** dashboard, or run this TraceQL query in Explore:
+2. Open the **Workshop — Trace Explorer** dashboard, or run this TraceQL query in Explore:
 
 ```
 { resource.service.name = "transfer-service" && name = "POST /transfers/prepare" && duration > 2s }
 ```
 
-You should see the slow traces listed. Compare with the fast ones.
-
 ### Step 3 — Identify the slow span
 
 Open one slow trace. Expand the waterfall.
 
-**Questions to answer:**
 - Which service contains the critical path?
 - Which span takes up most of the duration?
 - How many child spans does that span have?
 
 ### Step 4 — Compare span attributes
 
-Look at the `pricing.calculate` span attributes on a slow trace vs a fast one.
+Look at the `pricing.calculate` span on a slow trace vs a fast one.
 
 | Attribute | Slow trace | Fast trace |
 |---|---|---|
 | `pricing.strategy` | ? | ? |
 | `pricing.route_candidate_count` | ? | ? |
 
-What combination of request attributes (`transfer.source_currency`,
-`transfer.target_currency`, `transfer.type`, `transfer.amount_bucket`)
-is associated with the slow traces?
+What combination of `transfer.*` attributes is associated with the slow traces?
 
 ### Step 5 — Examine the FX spans
 
 In the slow trace, look at the child spans of `pricing.calculate`.
 
-- How many `fx.rate` spans are there?
+- How many `fx.call` spans are there?
 - Do they overlap in time, or do they start one after another?
-- What does the waterfall tell you about the execution order?
-
-Draw the timeline you see:
 
 ```
 Slow (actual):
-  fx.rate [provider-a]  ───────────
-  fx.rate [provider-b]              ───────────
-  fx.rate [provider-c]                          ───────────
+  fx.call [provider-a]  ───────────
+  fx.call [provider-b]              ───────────
+  fx.call [provider-c]                          ───────────
 
-Fast (expected):
-  fx.rate [provider-a]  ───────────
-  fx.rate [provider-b]  ───────────
-  fx.rate [provider-c]  ───────────
+Expected:
+  fx.call [provider-a]  ───────────
+  fx.call [provider-b]  ───────────
+  fx.call [provider-c]  ───────────
 ```
 
 ### Step 6 — Find the bug in the code
@@ -105,38 +95,20 @@ Open `app/src/main/kotlin/com/workshop/pricing/PricingController.kt`.
 
 Look at the section that fetches FX rates for MULTI_ROUTE candidates.
 
-**The bug:** The code uses `async { }.await()` inside a `map`. This *looks*
-concurrent — it uses `async` — but each coroutine is immediately awaited
-before the next one starts, forcing sequential execution.
+**The bug:** plain sequential `map` — the calls could run in parallel but run one after another.
 
 ```kotlin
-// Buggy — sequential despite using async
-candidates.map { candidate ->
-    coroutineScope {
-        async {
-            fxClient.getRate(...)
-        }.await()  // <-- awaited immediately inside the map
-    }
+val rates = candidates.map { candidate ->
+    fxClient.getRate(request.sourceCurrency, request.targetCurrency, candidate)
 }
 ```
 
 ### Step 7 — Fix the code
 
-Replace the sequential loop with a truly concurrent implementation:
-
 ```kotlin
-// Fixed — all coroutines launched before any is awaited
-coroutineScope {
-    candidates.map { candidate ->
-        async {
-            fxClient.getRate(
-                request.sourceCurrency,
-                request.targetCurrency,
-                candidate
-            )
-        }
-    }.awaitAll()
-}
+val rates = candidates.parallelStream()
+    .map { fxClient.getRate(request.sourceCurrency, request.targetCurrency, it) }
+    .toList()
 ```
 
 ### Step 8 — Enable and run the regression test
@@ -150,110 +122,119 @@ In `app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt`:
 ### Step 9 — Rebuild and verify
 
 ```bash
+./gradlew :app:bootJar -q
 docker compose up -d --build pricing
 ./scripts/generate-slow-request.sh
 ```
 
-Open Grafana and compare the new trace with the old one. The three FX spans
-should now overlap. Total duration should drop from ~3 s to ~1 s.
+Open Grafana and compare. The three `fx.call` spans should now overlap.
+Total duration drops from ~3 s to ~1 s.
 
 ---
 
-## Investigation 2 — The hidden fan-out
+## Investigation 2 — The cache that never hits
 
 ### Background
 
-Every transfer request calls the compliance service to screen the beneficiaries.
-This is expected. But something is not right with how it is called.
-There are no errors, no timeouts, and nothing unusual in the logs.
+The pricing service has a route-candidate cache to avoid redundant calls to the
+support service. Performance metrics show the cache hit rate is 0%. Every single
+request fetches routing candidates from scratch. Nobody can explain why — the
+cache code looks correct and there are no errors anywhere.
 
-### Step 1 — Generate a request and open its trace
+### Step 1 — Generate several identical requests
 
 ```bash
-curl -s -X POST http://localhost:8080/transfers/prepare \
-  -H "Content-Type: application/json" \
-  -d '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":1000}'
+for i in 1 2 3 4 5; do
+  curl -s -o /dev/null -X POST http://localhost:8080/transfers/prepare \
+    -H "Content-Type: application/json" \
+    -d '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":500,"recipientId":"rec-1"}'
+done
 ```
 
-In Grafana, find this trace (use the **All transfer.prepare traces** panel or
-search `{ resource.service.name = "transfer-service" && name = "POST /transfers/prepare" }`).
+All five requests use identical routing parameters. With a working cache, only
+the first should hit the support service for routing candidates.
 
-### Step 2 — Count the compliance spans
+### Step 2 — Find the traces in Grafana
 
-Expand the waterfall. Find the spans that call the compliance service.
+Open several `POST /transfers/prepare` traces for the EUR→USD requests.
 
-**Questions to answer:**
-- How many compliance spans do you see?
-- Are they sequential or overlapping?
-- How many beneficiaries does the customer have?
-- Should the number of compliance calls equal the number of beneficiaries?
+Expand the waterfall inside `pricing.calculate` for each one.
+
+- Is `GET /routing/candidates` present in every single trace?
+- Does it ever disappear (cache hit = no downstream call)?
 
 ### Step 3 — Why logs miss this
 
-Try to detect this problem using only logs:
-
-- Each compliance call returns 200 OK in under 50 ms.
-- The log line for each call looks completely normal.
-- To detect the fan-out from logs you would need to: find all compliance
-  calls for the same trace, group them, count them, and compare that count
-  across many requests. This is impractical in production.
-
-In the trace, you see it instantly: N identical sibling spans where there
-should be 1.
+- Every routing call returns 200 OK in a few milliseconds.
+- The cache logs "cache miss" — but cache misses are normal on first use, so this line is never alarming.
+- To detect a 0% hit rate from logs you would need to aggregate miss/hit counters across thousands of requests. In a trace, zero hits is visible immediately: every single trace has a `GET /routing/candidates` span.
 
 ### Step 4 — Find the bug in the code
 
-Open `app/src/main/kotlin/com/workshop/transfer/TransferController.kt`.
+Open `app/src/main/kotlin/com/workshop/pricing/RouteCache.kt`.
 
-Look at the compliance screening section.
+Look at the `CacheKey` data class.
 
-**The bug:** Each beneficiary is screened with a separate HTTP call.
+**The bug:** The key includes `requestId`, which is a fresh UUID generated by the
+transfer service for each request. Every key is globally unique, so no two requests
+ever share a cache entry.
 
 ```kotlin
-// Buggy — one HTTP call per beneficiary (N+1)
-customer.beneficiaries.mapIndexed { index, beneficiary ->
-    supportClient.screenCompliance(beneficiary.id, index)
-}
+private data class CacheKey(
+    val sourceCurrency: String,
+    val targetCurrency: String,
+    val transferType: String,
+    val amountBucket: String,
+    val requestId: String   // <-- always unique, defeats the cache entirely
+)
 ```
 
-A batch endpoint exists at `/compliance/screenBatch` but is not used.
+The routing result depends only on the four currency/type/bucket fields —
+not on which specific request triggered the lookup.
 
 ### Step 5 — Fix the code
 
-Replace the per-item loop with a single batch call:
+Remove `requestId` from `CacheKey`:
 
 ```kotlin
-// Fixed — one HTTP call for all beneficiaries
-supportClient.screenComplianceBatch(customer.beneficiaries)
+private data class CacheKey(
+    val sourceCurrency: String,
+    val targetCurrency: String,
+    val transferType: String,
+    val amountBucket: String
+)
 ```
+
+Also remove the `requestId` parameters from `get()` and `put()`.
 
 ### Step 6 — Enable and run the regression test
 
-In `app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt`:
+In `app/src/test/kotlin/com/workshop/pricing/RouteCacheTest.kt`:
 
 1. Remove the `@Disabled` annotation.
-2. Run: `./gradlew :app:test --tests "com.workshop.transfer.ComplianceFanoutTest"`
+2. Run: `./gradlew :app:test --tests "com.workshop.pricing.RouteCacheTest"`
 3. The test should now pass.
 
 ### Step 7 — Rebuild and verify
 
 ```bash
-docker compose up -d --build transfer
+./gradlew :app:bootJar -q
+docker compose up -d --build pricing
 ```
 
-Generate another request. In Grafana, compare the new trace with the old one.
-There should now be exactly one compliance span instead of three.
+Fire the same 5 identical requests again. Only the first trace should have a
+`GET /routing/candidates` span. The other four should go straight to `fx.call`.
 
 ---
 
 ## Reflection
 
-| | Bug #1 (sequential coroutines) | Bug #2 (N+1 fan-out) |
+| | Bug #1 (sequential FX) | Bug #2 (broken cache key) |
 |---|---|---|
-| Visible in logs | No | No |
+| Visible in logs | No | No (cache misses look normal) |
 | Error or exception | No | No |
-| Visible in traces | Yes — sequential waterfall | Yes — repeated sibling spans |
-| Hard to see in code | Yes — `async` present, misleading | Yes — looks like normal iteration |
-| Fix | `awaitAll()` | batch call |
+| Visible in traces | Yes — sequential waterfall | Yes — routing call on every trace |
+| Hard to see in code | Yes — sequential map looks fine | Yes — requestId in key looks defensive |
+| Fix | `parallelStream()` | Remove `requestId` from `CacheKey` |
 
-Both bugs pass silently through every layer of observability except the trace.
+Both bugs are invisible to every observability signal except the trace structure.
