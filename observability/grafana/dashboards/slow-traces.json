@@ -16,7 +16,7 @@
       "title": "Open Explore (Tempo)",
       "tooltip": "",
       "type": "link",
-      "url": "/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B+duration+%3E+2s+%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D"
+      "url": "/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B+resource.service.name+%3D+%5C%22transfer-service%5C%22+%26%26+name+%3D+%5C%22POST+%2Ftransfers%2Fprepare%5C%22+%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D"
     }
   ],
   "panels": [
@@ -89,7 +89,7 @@
           "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
           "hide": false,
           "limit": 50,
-          "query": "{ name = \"transfer.prepare\" }",
+          "query": "{ resource.service.name = \"transfer-service\" && name = \"POST /transfers/prepare\" }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
@@ -167,7 +167,7 @@
           "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
           "hide": false,
           "limit": 20,
-          "query": "{ duration > 2s }",
+          "query": "{ resource.service.name = \"transfer-service\" && name = \"POST /transfers/prepare\" && duration > 2s }",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
