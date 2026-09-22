@@ -1,28 +1,27 @@
-From cfab37d0baaae4c5f4e2751ebddf7cb56bea455c Mon Sep 17 00:00:00 2001
+From 07bdea603605a1bc2ec281fa86a65972792c98ba Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gergo=CC=8B=20Imre?= <gergo.imre@wise.com>
-Date: Tue, 22 Sep 2026 18:58:18 +0200
-Subject: [PATCH] Solution: parallelStream for FX, screenComplianceBatch,
- enable regression tests
+Date: Tue, 22 Sep 2026 19:03:29 +0200
+Subject: [PATCH] Solution: parallelStream, screenComplianceBatch, enable
+ regression tests
 
 ---
- .../main/kotlin/com/workshop/pricing/PricingController.kt  | 7 ++++---
- .../kotlin/com/workshop/transfer/TransferController.kt     | 7 +++----
- .../kotlin/com/workshop/pricing/PricingConcurrencyTest.kt  | 2 --
- .../kotlin/com/workshop/transfer/ComplianceFanoutTest.kt   | 2 --
- 4 files changed, 7 insertions(+), 11 deletions(-)
+ .../main/kotlin/com/workshop/pricing/PricingController.kt   | 6 +++---
+ .../main/kotlin/com/workshop/transfer/TransferController.kt | 6 ++----
+ .../kotlin/com/workshop/pricing/PricingConcurrencyTest.kt   | 2 --
+ .../kotlin/com/workshop/transfer/ComplianceFanoutTest.kt    | 2 --
+ 4 files changed, 5 insertions(+), 11 deletions(-)
 
 diff --git a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-index 19fe25f..5338613 100644
+index 2d28597..f13a9f5 100644
 --- a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
 +++ b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-@@ -59,9 +59,10 @@ class PricingController(
-         //       .map { fxClient.getRate(request.sourceCurrency, request.targetCurrency, it) }
-         //       .toList()
-         // ──────────────────────────────────────────────────────────────────
+@@ -42,9 +42,9 @@ class PricingController(
+ 
+         log.info("Calculating pricing: strategy={} candidates={}", strategy.name, candidates.size)
+ 
 -        val rates = candidates.map { candidate ->
 -            fxClient.getRate(request.sourceCurrency, request.targetCurrency, candidate)
 -        }
-+        // All FX requests execute in parallel via virtual-thread-backed parallelStream.
 +        val rates = candidates.parallelStream()
 +            .map { fxClient.getRate(request.sourceCurrency, request.targetCurrency, it) }
 +            .toList()
@@ -30,28 +29,27 @@ index 19fe25f..5338613 100644
          val best = rates.minByOrNull { it.rate }!!
  
 diff --git a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
-index 937d416..3379678 100644
+index d07f860..d412552 100644
 --- a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
 +++ b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
-@@ -55,10 +55,9 @@ class TransferController(
-         // The fix (in solution.patch) is:
-         //   supportClient.screenComplianceBatch(customer.beneficiaries)
-         // ──────────────────────────────────────────────────────────────────
+@@ -39,10 +39,8 @@ class TransferController(
+         val limits = supportClient.getLimits(customer.customerId)
+         log.info("Limits checked: withinLimit={}", limits.withinLimit)
+ 
 -        customer.beneficiaries.forEachIndexed { index, beneficiary ->
 -            val result = supportClient.screenCompliance(beneficiary.id, index)
 -            log.info("Compliance cleared: beneficiaryId={} cleared={}", beneficiary.id, result.cleared)
 -        }
-+        // Single batch compliance call for all beneficiaries.
 +        val batchResult = supportClient.screenComplianceBatch(customer.beneficiaries)
 +        log.info("Compliance batch cleared: count={}", batchResult.results.size)
  
          val pricing = pricingClient.calculate(
              PricingRequest(request.sourceCurrency, request.targetCurrency, request.transferType, bucket)
 diff --git a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
-index 496fb80..2d56550 100644
+index b3ddf84..68795ec 100644
 --- a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
 +++ b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
-@@ -5,7 +5,6 @@ import com.workshop.common.RouteCandidate
+@@ -5,13 +5,11 @@ import com.workshop.common.RouteCandidate
  import com.workshop.common.RoutingCandidatesResponse
  import io.mockk.every
  import io.mockk.mockk
@@ -59,30 +57,23 @@ index 496fb80..2d56550 100644
  import org.junit.jupiter.api.Test
  import kotlin.test.assertTrue
  import kotlin.time.Duration.Companion.milliseconds
-@@ -20,7 +19,6 @@ import kotlin.time.measureTime
-  *
-  * TODO (workshop): Enable after applying solution.patch — see WORKSHOP.md.
-  */
+ import kotlin.time.measureTime
+ 
 -@Disabled("Enable after applying solution.patch — see WORKSHOP.md")
  class PricingConcurrencyTest {
  
      private val fxDelayMs = 200L
 diff --git a/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt b/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
-index d59da91..9b431c2 100644
+index 5d16905..39c8fd8 100644
 --- a/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
 +++ b/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
-@@ -2,7 +2,6 @@ package com.workshop.transfer
+@@ -2,10 +2,8 @@ package com.workshop.transfer
  
  import com.workshop.common.*
  import io.mockk.*
 -import org.junit.jupiter.api.Disabled
  import org.junit.jupiter.api.Test
- import kotlin.test.assertEquals
  
-@@ -16,7 +15,6 @@ import kotlin.test.assertEquals
-  *
-  * TODO (workshop): Enable after applying solution.patch — see WORKSHOP.md.
-  */
 -@Disabled("Enable after applying solution.patch — see WORKSHOP.md")
  class ComplianceFanoutTest {
  
