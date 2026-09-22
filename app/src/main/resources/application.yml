@@ -30,6 +30,9 @@ workshop:
   notification-url: ${NOTIFICATION_URL:http://localhost:8090}
   audit-url: ${AUDIT_URL:http://localhost:8091}
   screening-url: ${SCREENING_URL:http://localhost:8092}
+  settle-delay-ms: ${SETTLE_DELAY_MS:500}
+  reconcile-delay-ms: ${RECONCILE_DELAY_MS:2000}
+  receipt-delay-ms: ${RECEIPT_DELAY_MS:4000}
 
 fx:
   delay-ms: ${FX_DELAY_MS:1000}

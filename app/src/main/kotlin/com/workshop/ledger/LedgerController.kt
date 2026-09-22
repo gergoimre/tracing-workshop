@@ -1,5 +1,7 @@
 package com.workshop.ledger
 
+import com.workshop.common.LedgerCommitRequest
+import com.workshop.common.LedgerCommitResponse
 import com.workshop.common.LedgerReserveRequest
 import com.workshop.common.LedgerReserveResponse
 import io.opentelemetry.api.trace.Span
@@ -44,5 +46,29 @@ class LedgerController(private val accountsClient: AccountsClient) {
             accountId = accountId,
             reserved = true
         )
+    }
+
+    @PostMapping("/commit")
+    fun commit(@RequestBody request: LedgerCommitRequest): LedgerCommitResponse = commitFunds(request)
+
+    @WithSpan("ledger.commit")
+    fun commitFunds(request: LedgerCommitRequest): LedgerCommitResponse {
+        Thread.sleep(25)
+
+        val accountId = "acc-${request.sourceCurrency.lowercase()}-primary"
+        val balance = accountsClient.getBalance(accountId)
+
+        val commitId = "cmt-${UUID.randomUUID().toString().take(8)}"
+
+        Span.current().apply {
+            setAttribute("ledger.commit_id", commitId)
+            setAttribute("ledger.account_id", accountId)
+            setAttribute("ledger.settled", true)
+            setAttribute("ledger.balance_sufficient", balance.sufficient)
+        }
+
+        log.info("Funds committed: transferId={} account={} commitId={}", request.transferId, accountId, commitId)
+
+        return LedgerCommitResponse(commitId = commitId, settled = true)
     }
 }

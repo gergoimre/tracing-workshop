@@ -158,6 +158,19 @@ data class LedgerReserveResponse(
     val reserved: Boolean
 )
 
+// ledger-service (commit — used by async settlement job)
+data class LedgerCommitRequest(
+    val transferId: String,
+    val sourceCurrency: String,
+    val amount: Long,
+    val provider: String
+)
+
+data class LedgerCommitResponse(
+    val commitId: String,
+    val settled: Boolean
+)
+
 // accounts-service
 data class AccountBalanceResponse(
     val accountId: String,

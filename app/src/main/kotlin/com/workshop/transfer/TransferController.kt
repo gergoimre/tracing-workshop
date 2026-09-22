@@ -19,7 +19,8 @@ class TransferController(
     private val riskClient: RiskClient,
     private val pricingClient: PricingClient,
     private val notificationClient: NotificationClient,
-    private val auditClient: AuditClient
+    private val auditClient: AuditClient,
+    private val backgroundJobService: BackgroundJobService
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -85,6 +86,26 @@ class TransferController(
             payload = """{"sourceCurrency":"${request.sourceCurrency}","targetCurrency":"${request.targetCurrency}","amountBucket":"$bucket"}"""
         )
         log.info("Transfer prepared and audited: id={}", transferId)
+
+        Span.current().setAttribute("transfer.async_jobs_started", 3L)
+
+        backgroundJobService.settle(
+            transferId = transferId,
+            sourceCurrency = request.sourceCurrency,
+            amount = request.amount,
+            provider = pricing.provider
+        )
+        backgroundJobService.reconcile(
+            transferId = transferId,
+            sourceCurrency = request.sourceCurrency,
+            targetCurrency = request.targetCurrency
+        )
+        backgroundJobService.sendReceipt(
+            transferId = transferId,
+            customerId = customer.customerId
+        )
+
+        log.info("Background jobs dispatched: transferId={}", transferId)
 
         return PrepareTransferResponse(
             transferId = transferId,

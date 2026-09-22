@@ -25,7 +25,7 @@ datasources:
         filterByTraceID: false
         filterBySpanID: false
         customQuery: true
-        query: '{service_name="${__tags[service.name]}"} | trace_id = "${__traceId}"'
+        query: '{$${__tags}, trace_id="$${__trace.traceId}"}'
         tags:
           - key: service.name
             value: service_name

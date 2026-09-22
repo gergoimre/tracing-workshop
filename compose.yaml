@@ -423,6 +423,7 @@ services:
       SUPPORT_URL: http://support:8083
       AUTH_URL: http://auth:8084
       RISK_URL: http://risk:8086
+      LEDGER_URL: http://ledger:8088
       NOTIFICATION_URL: http://notification:8090
       AUDIT_URL: http://audit:8091
     ports:
