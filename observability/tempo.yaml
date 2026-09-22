@@ -14,8 +14,9 @@ distributor:
           endpoint: 0.0.0.0:4318
 
 ingester:
+  # Flush blocks quickly so traces are queryable by ID almost immediately.
   max_block_bytes: 1_000_000
-  max_block_duration: 5m
+  max_block_duration: 30s
 
 compactor:
   compaction:
@@ -28,6 +29,9 @@ storage:
       path: /var/tempo/blocks
     wal:
       path: /var/tempo/wal
+    # vParquet3 is required for TraceQL search in Tempo 2.x
+    block:
+      version: vParquet3
 
 query_frontend:
   search:
