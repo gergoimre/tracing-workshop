@@ -1,21 +1,21 @@
-From 4e70c1bfb4a536de87352de89c6631c425dd2e4b Mon Sep 17 00:00:00 2001
+From 96d269ea52c23d6b15c99370e2a3d319e40990d6 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gergo=CC=8B=20Imre?= <gergo.imre@wise.com>
-Date: Tue, 22 Sep 2026 19:54:35 +0200
-Subject: [PATCH] Solution: parallelStream FX, fix cache key (remove
- requestId), enable regression tests
+Date: Tue, 22 Sep 2026 20:12:41 +0200
+Subject: [PATCH] Solution: parallelStream FX, dedupe+filter screening terms,
+ enable regression tests
 
 ---
- .../kotlin/com/workshop/pricing/PricingController.kt  |  6 +++---
- .../main/kotlin/com/workshop/pricing/RouteCache.kt    | 11 +++++------
- .../com/workshop/pricing/PricingConcurrencyTest.kt    |  2 --
- .../kotlin/com/workshop/pricing/RouteCacheTest.kt     |  2 --
- 4 files changed, 8 insertions(+), 13 deletions(-)
+ .../main/kotlin/com/workshop/pricing/PricingController.kt   | 6 +++---
+ app/src/main/kotlin/com/workshop/risk/RiskController.kt     | 2 ++
+ .../kotlin/com/workshop/pricing/PricingConcurrencyTest.kt   | 2 --
+ app/src/test/kotlin/com/workshop/risk/RiskScreeningTest.kt  | 2 --
+ 4 files changed, 5 insertions(+), 7 deletions(-)
 
 diff --git a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-index b94974a..b08750a 100644
+index 66bc2bd..254f57c 100644
 --- a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
 +++ b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-@@ -57,9 +57,9 @@ class PricingController(
+@@ -58,9 +58,9 @@ class PricingController(
  
          log.info("Calculating pricing: strategy={} candidates={}", strategy.name, candidates.size)
  
@@ -28,48 +28,24 @@ index b94974a..b08750a 100644
  
          val best = rates.minByOrNull { it.rate }!!
  
-diff --git a/app/src/main/kotlin/com/workshop/pricing/RouteCache.kt b/app/src/main/kotlin/com/workshop/pricing/RouteCache.kt
-index 569abd7..d0acdcb 100644
---- a/app/src/main/kotlin/com/workshop/pricing/RouteCache.kt
-+++ b/app/src/main/kotlin/com/workshop/pricing/RouteCache.kt
-@@ -12,8 +12,7 @@ class RouteCache {
-         val sourceCurrency: String,
-         val targetCurrency: String,
-         val transferType: String,
--        val amountBucket: String,
--        val requestId: String
-+        val amountBucket: String
-     )
+diff --git a/app/src/main/kotlin/com/workshop/risk/RiskController.kt b/app/src/main/kotlin/com/workshop/risk/RiskController.kt
+index 0006bb2..8b4fc30 100644
+--- a/app/src/main/kotlin/com/workshop/risk/RiskController.kt
++++ b/app/src/main/kotlin/com/workshop/risk/RiskController.kt
+@@ -55,6 +55,8 @@ class RiskController(
+         val terms = memo.split(",")
+             .flatMap { it.split(" ") }
+             .map { it.trim().lowercase() }
++            .filter { it.isNotBlank() }
++            .distinct()
  
-     private val store = ConcurrentHashMap<CacheKey, List<com.workshop.common.RouteCandidate>>()
-@@ -23,18 +22,18 @@ class RouteCache {
-         targetCurrency: String,
-         transferType: String,
-         amountBucket: String,
--        requestId: String
-+        requestId: String = ""
-     ): List<com.workshop.common.RouteCandidate>? =
--        store[CacheKey(sourceCurrency, targetCurrency, transferType, amountBucket, requestId)]
-+        store[CacheKey(sourceCurrency, targetCurrency, transferType, amountBucket)]
- 
-     fun put(
-         sourceCurrency: String,
-         targetCurrency: String,
-         transferType: String,
-         amountBucket: String,
--        requestId: String,
-+        requestId: String = "",
-         candidates: List<com.workshop.common.RouteCandidate>
-     ) {
--        store[CacheKey(sourceCurrency, targetCurrency, transferType, amountBucket, requestId)] = candidates
-+        store[CacheKey(sourceCurrency, targetCurrency, transferType, amountBucket)] = candidates
-     }
- }
+         terms.forEach { term ->
+             val result = screeningClient.check(term, customerId)
 diff --git a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
-index fadd570..224b1d8 100644
+index abaffa4..c456505 100644
 --- a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
 +++ b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
-@@ -5,13 +5,11 @@ import com.workshop.common.RouteCandidate
+@@ -6,13 +6,11 @@ import com.workshop.common.RouteCandidate
  import com.workshop.common.RoutingCandidatesResponse
  import io.mockk.every
  import io.mockk.mockk
@@ -83,11 +59,11 @@ index fadd570..224b1d8 100644
  class PricingConcurrencyTest {
  
      private val fxDelayMs = 200L
-diff --git a/app/src/test/kotlin/com/workshop/pricing/RouteCacheTest.kt b/app/src/test/kotlin/com/workshop/pricing/RouteCacheTest.kt
-index 1e8f253..36c6f88 100644
---- a/app/src/test/kotlin/com/workshop/pricing/RouteCacheTest.kt
-+++ b/app/src/test/kotlin/com/workshop/pricing/RouteCacheTest.kt
-@@ -6,10 +6,8 @@ import com.workshop.common.RoutingCandidatesResponse
+diff --git a/app/src/test/kotlin/com/workshop/risk/RiskScreeningTest.kt b/app/src/test/kotlin/com/workshop/risk/RiskScreeningTest.kt
+index 4f1856a..e38eec0 100644
+--- a/app/src/test/kotlin/com/workshop/risk/RiskScreeningTest.kt
++++ b/app/src/test/kotlin/com/workshop/risk/RiskScreeningTest.kt
+@@ -6,10 +6,8 @@ import com.workshop.common.ScreeningCheckResponse
  import io.mockk.every
  import io.mockk.mockk
  import io.mockk.verify
@@ -95,7 +71,7 @@ index 1e8f253..36c6f88 100644
  import org.junit.jupiter.api.Test
  
 -@Disabled("Enable after applying solution.patch — see WORKSHOP.md")
- class RouteCacheTest {
+ class RiskScreeningTest {
  
      @Test
 -- 
