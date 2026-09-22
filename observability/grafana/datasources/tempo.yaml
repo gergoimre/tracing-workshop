@@ -23,7 +23,7 @@ datasources:
         spanStartTimeShift: -1m
         spanEndTimeShift: 1m
         filterByTraceID: true
-        filterBySpanID: true
+        filterBySpanID: false
         customQuery: false
   - uid: loki-workshop
     name: Loki
