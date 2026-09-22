@@ -1,18 +1,18 @@
-From 1b40e7fbb935949d152827a0c689b4c383ae21df Mon Sep 17 00:00:00 2001
+From 7b072db8098b5950cf5c5e1b9d160b1e74cb0965 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gergo=CC=8B=20Imre?= <gergo.imre@wise.com>
-Date: Tue, 22 Sep 2026 10:10:07 +0200
+Date: Tue, 22 Sep 2026 11:17:40 +0200
 Subject: [PATCH] Apply fixes: concurrent FX (awaitAll), compliance batch,
  enable regression tests
 
 ---
- .../com/workshop/pricing/PricingController.kt | 18 ++++++------------
- .../workshop/transfer/TransferController.kt   | 19 ++-----------------
- .../pricing/PricingConcurrencyTest.kt         | 11 ++---------
- .../workshop/transfer/ComplianceFanoutTest.kt |  2 --
- 4 files changed, 10 insertions(+), 40 deletions(-)
+ .../kotlin/com/workshop/pricing/PricingController.kt   | 10 ++++++----
+ .../kotlin/com/workshop/transfer/TransferController.kt |  9 +++------
+ .../com/workshop/pricing/PricingConcurrencyTest.kt     |  2 --
+ .../com/workshop/transfer/ComplianceFanoutTest.kt      |  2 --
+ 4 files changed, 9 insertions(+), 14 deletions(-)
 
 diff --git a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-index 7a7bbc5..c254801 100644
+index 372f953..2984003 100644
 --- a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
 +++ b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
 @@ -8,6 +8,7 @@ import io.opentelemetry.api.trace.SpanKind
@@ -22,19 +22,11 @@ index 7a7bbc5..c254801 100644
 +import kotlinx.coroutines.awaitAll
  import kotlinx.coroutines.coroutineScope
  import kotlinx.coroutines.withContext
- import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-@@ -59,16 +60,9 @@ class PricingController(
-         val pricingContext = Context.current().with(pricingSpan)
- 
-         return try {
--            // ──────────────────────────────────────────────────────────────────
--            // BUG #1: The async { }.await() pattern inside map looks concurrent
--            // but forces sequential execution — each coroutine is started and
--            // immediately awaited before the next one is launched.
--            //
--            // The fix (in solution.patch) is:
--            //   coroutineScope { candidates.map { async { fxClient.getRate(...) } }.awaitAll() }
--            // ──────────────────────────────────────────────────────────────────
+ import org.slf4j.LoggerFactory
+@@ -71,8 +72,9 @@ class PricingController(
+             // The fix (in solution.patch) is:
+             //   coroutineScope { candidates.map { async { fxClient.getRate(...) } }.awaitAll() }
+             // ──────────────────────────────────────────────────────────────────
 -            val rates = candidates.map { candidate ->
 -                coroutineScope {
 +            // All FX requests launched concurrently, awaited together.
@@ -43,7 +35,7 @@ index 7a7bbc5..c254801 100644
                      async {
                          fxClient.getRate(
                              request.sourceCurrency,
-@@ -76,8 +70,8 @@ class PricingController(
+@@ -80,8 +82,8 @@ class PricingController(
                              candidate,
                              pricingContext
                          )
@@ -55,37 +47,27 @@ index 7a7bbc5..c254801 100644
  
              val best = rates.minByKey { it.rate }
 diff --git a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
-index f6be647..a2f1e68 100644
+index 2d0f45f..559679e 100644
 --- a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
 +++ b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
-@@ -35,23 +35,8 @@ class TransferController(
-         // 2. Limits check
-         supportClient.getLimits(customer.customerId)
- 
--        // ──────────────────────────────────────────────────────────────────
--        // BUG #2: N+1 compliance fan-out.
--        // Each beneficiary is screened with a separate HTTP call instead of
--        // one batched call. This is always-on — every transfer goes through
--        // this path regardless of currency or amount.
--        //
--        // The bug looks like ordinary per-item validation in code.
--        // In logs: N separate 200 OK responses, nothing anomalous.
--        // In a trace: N identical sibling compliance.screen spans are
--        // immediately visible in the waterfall.
--        //
--        // The fix (in solution.patch) is:
--        //   supportClient.screenComplianceBatch(customer.beneficiaries)
--        // ──────────────────────────────────────────────────────────────────
+@@ -55,12 +55,9 @@ class TransferController(
+         // The fix (in solution.patch) is:
+         //   supportClient.screenComplianceBatch(customer.beneficiaries)
+         // ──────────────────────────────────────────────────────────────────
 -        customer.beneficiaries.mapIndexed { index, beneficiary ->
--            supportClient.screenCompliance(beneficiary.id, index)
+-            val result = supportClient.screenCompliance(beneficiary.id, index)
+-            // This log line looks perfectly healthy for every call.
+-            // Nothing here reveals that we're making N calls instead of 1.
+-            log.info("Compliance cleared: beneficiaryId={} cleared={}", beneficiary.id, result.cleared)
 -        }
 +        // Single batch compliance call for all beneficiaries.
-+        supportClient.screenComplianceBatch(customer.beneficiaries)
++        val batchResult = supportClient.screenComplianceBatch(customer.beneficiaries)
++        log.info("Compliance batch cleared: count={}", batchResult.results.size)
  
          // 4. Pricing
          val pricing = pricingClient.calculate(
 diff --git a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
-index 5bab1c6..093a204 100644
+index 5bab1c6..bb7b91b 100644
 --- a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
 +++ b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
 @@ -6,7 +6,6 @@ import com.workshop.common.RoutingCandidatesResponse
@@ -96,40 +78,14 @@ index 5bab1c6..093a204 100644
  import org.junit.jupiter.api.Test
  import kotlin.test.assertTrue
  import kotlin.time.Duration.Companion.milliseconds
-@@ -19,14 +18,10 @@ import kotlin.time.measureTime
-  * On the buggy implementation (async { }.await() inside map) the total
-  * duration is roughly N × FX_DELAY_MS.  After the fix (awaitAll) the
-  * total duration is roughly 1 × FX_DELAY_MS regardless of N.
-- *
-- * TODO (workshop): Enable this test after applying the fix from solution.patch.
-- *   The test will fail on the buggy code and pass after the fix.
+@@ -23,7 +22,6 @@ import kotlin.time.measureTime
+  * TODO (workshop): Enable this test after applying the fix from solution.patch.
+  *   The test will fail on the buggy code and pass after the fix.
   */
 -@Disabled("Enable after applying solution.patch — see WORKSHOP.md Step 9")
  class PricingConcurrencyTest {
  
--    private val fxDelayMs = 200L   // short delay so the test stays fast
-+    private val fxDelayMs = 200L
-     private val candidateCount = 3
- 
-     @Test
-@@ -36,7 +31,7 @@ class PricingConcurrencyTest {
-         }
- 
-         val fxClient = mockk<FxClient>()
--        coEvery { fxClient.getRate(any(), any(), any()) } coAnswers {
-+        coEvery { fxClient.getRate(any(), any(), any(), any()) } coAnswers {
-             kotlinx.coroutines.delay(fxDelayMs)
-             FxRateResponse("EUR", "BRL", 5.42, "provider-a", "LOCAL_PAYOUT")
-         }
-@@ -54,8 +49,6 @@ class PricingConcurrencyTest {
-             )
-         }
- 
--        // If requests run sequentially: ~600ms. Concurrently: ~200ms.
--        // Allow 1.8× the single delay as a generous upper bound.
-         val maxAllowed = (fxDelayMs * 1.8).milliseconds
-         assertTrue(
-             elapsed < maxAllowed,
+     private val fxDelayMs = 200L   // short delay so the test stays fast
 diff --git a/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt b/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
 index b673b26..cd38f18 100644
 --- a/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
