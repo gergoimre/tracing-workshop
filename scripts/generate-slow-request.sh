@@ -26,6 +26,6 @@ done
 
 echo ""
 echo "Now open Grafana: http://localhost:3000"
-echo "1. Go to Explore → Tempo"
-echo "2. Run query: { duration > 2s }"
-echo "3. Open a slow trace and examine the waterfall"
+echo "1. Open the Workshop — Trace Explorer dashboard, or go to Explore → Tempo"
+echo "2. The slow trace will appear in the 'Slow traces' panel automatically"
+echo "3. Click the Trace ID to open the waterfall"

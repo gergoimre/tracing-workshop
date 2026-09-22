@@ -47,10 +47,10 @@ curl -s -X POST http://localhost:8080/transfers/prepare \
 
 1. Open http://localhost:3000
 2. Go to **Explore** → select **Tempo**
-3. Open the **Workshop — Trace Explorer** dashboard, or run this TraceQL query:
+3. Open the **Workshop — Trace Explorer** dashboard, or run this TraceQL query in Explore:
 
 ```
-{ duration > 2s }
+{ resource.service.name = "transfer-service" && name = "POST /transfers/prepare" && duration > 2s }
 ```
 
 You should see the slow traces listed. Compare with the fast ones.
@@ -176,7 +176,7 @@ curl -s -X POST http://localhost:8080/transfers/prepare \
 ```
 
 In Grafana, find this trace (use the **All transfer.prepare traces** panel or
-search `{ name = "transfer.prepare" }`).
+search `{ resource.service.name = "transfer-service" && name = "POST /transfers/prepare" }`).
 
 ### Step 2 — Count the compliance spans
 
