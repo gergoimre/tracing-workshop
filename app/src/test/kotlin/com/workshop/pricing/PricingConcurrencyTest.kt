@@ -34,11 +34,12 @@ class PricingConcurrencyTest {
             routingClient.getCandidates("EUR", "BRL", "BANK_TRANSFER", "10000_PLUS")
         } returns RoutingCandidatesResponse(candidates)
 
-        val controller = PricingController(fxClient, routingClient)
+        val controller = PricingController(fxClient, routingClient, RouteCache())
 
         val elapsed = measureTime {
             controller.calculatePricing(
-                com.workshop.common.PricingRequest("EUR", "BRL", "BANK_TRANSFER", "10000_PLUS")
+                com.workshop.common.PricingRequest("EUR", "BRL", "BANK_TRANSFER", "10000_PLUS"),
+                "test-request-id"
             )
         }
 

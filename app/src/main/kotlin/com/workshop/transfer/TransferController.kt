@@ -28,21 +28,21 @@ class TransferController(
             setAttribute("transfer.target_currency", request.targetCurrency)
             setAttribute("transfer.type", request.transferType)
             setAttribute("transfer.amount_bucket", bucket)
+            setAttribute("transfer.recipient_id", request.recipientId)
         }
 
-        log.info("Preparing transfer: {}→{} {} amount_bucket={}",
-            request.sourceCurrency, request.targetCurrency, request.transferType, bucket)
+        log.info("Preparing transfer: {}→{} {} recipient={} amount_bucket={}",
+            request.sourceCurrency, request.targetCurrency, request.transferType,
+            request.recipientId, bucket)
 
         val customer = supportClient.getCustomer("cust-${UUID.randomUUID().toString().take(8)}")
-        log.info("Customer loaded: id={} beneficiaries={}", customer.customerId, customer.beneficiaries.size)
+        log.info("Customer loaded: id={}", customer.customerId)
 
         val limits = supportClient.getLimits(customer.customerId)
         log.info("Limits checked: withinLimit={}", limits.withinLimit)
 
-        customer.beneficiaries.forEachIndexed { index, beneficiary ->
-            val result = supportClient.screenCompliance(beneficiary.id, index)
-            log.info("Compliance cleared: beneficiaryId={} cleared={}", beneficiary.id, result.cleared)
-        }
+        val compliance = supportClient.screenCompliance(request.recipientId)
+        log.info("Compliance cleared: recipientId={} cleared={}", request.recipientId, compliance.cleared)
 
         val pricing = pricingClient.calculate(
             PricingRequest(request.sourceCurrency, request.targetCurrency, request.transferType, bucket)
@@ -59,6 +59,7 @@ class TransferController(
             transferType = request.transferType,
             amount = request.amount,
             amountBucket = bucket,
+            recipientId = request.recipientId,
             pricingStrategy = pricing.strategy,
             fxRate = pricing.bestRate
         )

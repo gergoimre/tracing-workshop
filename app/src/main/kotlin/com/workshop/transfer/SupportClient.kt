@@ -15,13 +15,8 @@ class SupportClient(@Qualifier("supportRestClient") private val restClient: Rest
     fun getLimits(customerId: String): LimitsResponse =
         restClient.get().uri("/limits/$customerId").retrieve().body<LimitsResponse>()!!
 
-    fun screenCompliance(beneficiaryId: String, beneficiaryIndex: Int): ComplianceResult =
+    fun screenCompliance(recipientId: String): ComplianceResult =
         restClient.post().uri("/compliance/screen")
-            .body(ComplianceScreenRequest(beneficiaryId, beneficiaryIndex))
+            .body(ComplianceScreenRequest(recipientId))
             .retrieve().body<ComplianceResult>()!!
-
-    fun screenComplianceBatch(beneficiaries: List<Beneficiary>): ComplianceBatchResult =
-        restClient.post().uri("/compliance/screenBatch")
-            .body(ComplianceScreenBatchRequest(beneficiaries))
-            .retrieve().body<ComplianceBatchResult>()!!
 }

@@ -13,10 +13,9 @@ for i in $(seq 1 "$COUNT"); do
   start=$SECONDS
   response=$(curl -s -w "\n%{http_code}" -X POST "${BASE_URL}/transfers/prepare" \
     -H "Content-Type: application/json" \
-    -d '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000}')
+    -d '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000,"recipientId":"rec-2"}')
   elapsed=$(( SECONDS - start ))
   status=$(echo "$response" | tail -1)
-  body_out=$(echo "$response" | head -1)
   if [ "$status" = "200" ]; then
     echo "OK — ~${elapsed}s"
   else

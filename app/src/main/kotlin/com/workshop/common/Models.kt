@@ -4,7 +4,8 @@ data class PrepareTransferRequest(
     val sourceCurrency: String,
     val targetCurrency: String,
     val transferType: String,
-    val amount: Long
+    val amount: Long,
+    val recipientId: String
 )
 
 data class PrepareTransferResponse(
@@ -14,6 +15,7 @@ data class PrepareTransferResponse(
     val transferType: String,
     val amount: Long,
     val amountBucket: String,
+    val recipientId: String,
     val pricingStrategy: String,
     val fxRate: Double,
     val status: String = "PREPARED"
@@ -40,34 +42,26 @@ data class FxRateResponse(
     val routeType: String
 )
 
-data class Beneficiary(
+data class Recipient(
     val id: String,
-    val name: String
+    val name: String,
+    val accountNumber: String
 )
 
 data class ComplianceScreenRequest(
-    val beneficiaryId: String,
-    val beneficiaryIndex: Int
-)
-
-data class ComplianceScreenBatchRequest(
-    val beneficiaries: List<Beneficiary>
+    val recipientId: String
 )
 
 data class ComplianceResult(
-    val beneficiaryId: String,
+    val recipientId: String,
     val cleared: Boolean
-)
-
-data class ComplianceBatchResult(
-    val results: List<ComplianceResult>
 )
 
 data class CustomerResponse(
     val customerId: String,
     val name: String,
     val tier: String,
-    val beneficiaries: List<Beneficiary>
+    val savedRecipients: List<Recipient>
 )
 
 data class LimitsResponse(

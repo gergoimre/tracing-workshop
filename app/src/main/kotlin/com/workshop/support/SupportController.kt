@@ -18,13 +18,13 @@ class SupportController {
             customerId = id,
             name = "Jane Doe",
             tier = "STANDARD",
-            beneficiaries = listOf(
-                Beneficiary("ben-1", "Acme Corp"),
-                Beneficiary("ben-2", "Globex Ltd"),
-                Beneficiary("ben-3", "Initech SA")
+            savedRecipients = listOf(
+                Recipient("rec-1", "Acme Corp",  "BR1234567890"),
+                Recipient("rec-2", "Globex Ltd", "BR0987654321"),
+                Recipient("rec-3", "Initech SA", "BR1122334455")
             )
         )
-        log.info("Customer lookup: id={} beneficiaries={}", id, response.beneficiaries.size)
+        log.info("Customer lookup: id={}", id)
         return response
     }
 
@@ -37,17 +37,10 @@ class SupportController {
 
     @PostMapping("/compliance/screen")
     fun screenSingle(@RequestBody request: ComplianceScreenRequest): ComplianceResult {
-        Span.current().setAttribute("compliance.beneficiary_index", request.beneficiaryIndex.toLong())
-        val result = ComplianceResult(beneficiaryId = request.beneficiaryId, cleared = true)
-        log.info("Compliance screen: beneficiaryId={} cleared={}", request.beneficiaryId, result.cleared)
+        Span.current().setAttribute("compliance.recipient_id", request.recipientId)
+        val result = ComplianceResult(recipientId = request.recipientId, cleared = true)
+        log.info("Compliance screen: recipientId={} cleared={}", request.recipientId, result.cleared)
         return result
-    }
-
-    @PostMapping("/compliance/screenBatch")
-    fun screenBatch(@RequestBody request: ComplianceScreenBatchRequest): ComplianceBatchResult {
-        val results = request.beneficiaries.map { ComplianceResult(beneficiaryId = it.id, cleared = true) }
-        log.info("Compliance batch screen: count={} allCleared={}", results.size, results.all { it.cleared })
-        return ComplianceBatchResult(results)
     }
 
     @GetMapping("/routing/candidates")
@@ -66,7 +59,7 @@ class SupportController {
             listOf(
                 RouteCandidate("route-1", "LOCAL_PAYOUT", "provider-a"),
                 RouteCandidate("route-2", "LOCAL_PAYOUT", "provider-b"),
-                RouteCandidate("route-3", "SWIFT", "provider-c")
+                RouteCandidate("route-3", "SWIFT",        "provider-c")
             )
         } else {
             listOf(RouteCandidate("route-1", "LOCAL_PAYOUT", "provider-a"))

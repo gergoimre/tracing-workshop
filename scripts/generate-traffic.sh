@@ -2,33 +2,27 @@
 set -euo pipefail
 
 BASE_URL="${TRANSFER_URL:-http://localhost:8080}"
-COUNT="${1:-12}"   # total requests to send, default 12
+COUNT="${1:-12}"
 
-# ── Payload pool ──────────────────────────────────────────────────────────────
-# Mix of fast and slow requests. The slow one is included so participants
-# discover it naturally — they are NOT labelled.
 PAYLOADS=(
-  '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":15000}'
-  '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":500}'
-  '{"sourceCurrency":"GBP","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000}'
-  '{"sourceCurrency":"GBP","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":8000}'
-  '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":500}'
-  '{"sourceCurrency":"GBP","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":300}'
-  '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":25000}'
-  '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000}'
+  '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":15000,"recipientId":"rec-1"}'
+  '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":500,"recipientId":"rec-2"}'
+  '{"sourceCurrency":"GBP","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000,"recipientId":"rec-1"}'
+  '{"sourceCurrency":"GBP","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":8000,"recipientId":"rec-3"}'
+  '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":500,"recipientId":"rec-2"}'
+  '{"sourceCurrency":"GBP","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":300,"recipientId":"rec-1"}'
+  '{"sourceCurrency":"EUR","targetCurrency":"USD","transferType":"BANK_TRANSFER","amount":25000,"recipientId":"rec-3"}'
+  '{"sourceCurrency":"EUR","targetCurrency":"BRL","transferType":"BANK_TRANSFER","amount":15000,"recipientId":"rec-2"}'
 )
 POOL_SIZE=${#PAYLOADS[@]}
 
 echo "Sending ${COUNT} concurrent requests to ${BASE_URL}"
 echo ""
 
-# ── Temporary directory for results ──────────────────────────────────────────
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-# ── Fire all requests concurrently ───────────────────────────────────────────
 for i in $(seq 1 "$COUNT"); do
-  # Pick a random payload
   idx=$(( RANDOM % POOL_SIZE ))
   payload="${PAYLOADS[$idx]}"
 
@@ -52,15 +46,10 @@ for i in $(seq 1 "$COUNT"); do
   ) &
 done
 
-# ── Wait for all background jobs ─────────────────────────────────────────────
 wait
 
-# ── Print results in order ───────────────────────────────────────────────────
 for i in $(seq 1 "$COUNT"); do
-  result_file="${TMPDIR}/req_${i}"
-  if [ -f "$result_file" ]; then
-    echo "  $(cat "$result_file")"
-  fi
+  [ -f "${TMPDIR}/req_${i}" ] && echo "  $(cat "${TMPDIR}/req_${i}")"
 done
 
 echo ""

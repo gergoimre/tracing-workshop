@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -16,24 +17,38 @@ import org.springframework.web.bind.annotation.RestController
 @ConditionalOnProperty(name = ["APP_ROLE"], havingValue = "pricing")
 class PricingController(
     private val fxClient: FxClient,
-    private val routingClient: RoutingClient
+    private val routingClient: RoutingClient,
+    private val routeCache: RouteCache
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @PostMapping("/calculate")
-    fun calculate(@RequestBody request: PricingRequest): PricingResponse =
-        calculatePricing(request)
+    fun calculate(
+        @RequestBody request: PricingRequest,
+        @RequestHeader("X-Request-ID", defaultValue = "") requestId: String
+    ): PricingResponse = calculatePricing(request, requestId)
 
     @WithSpan("pricing.calculate")
-    fun calculatePricing(request: PricingRequest): PricingResponse {
+    fun calculatePricing(request: PricingRequest, requestId: String): PricingResponse {
         val strategy = StrategyRules.resolve(
             request.sourceCurrency, request.targetCurrency,
             request.transferType, request.amountBucket
         )
-        val candidates = routingClient.getCandidates(
+
+        val candidates = routeCache.get(
+            request.sourceCurrency, request.targetCurrency,
+            request.transferType, request.amountBucket,
+            requestId
+        ) ?: routingClient.getCandidates(
             request.sourceCurrency, request.targetCurrency,
             request.transferType, request.amountBucket
-        ).candidates
+        ).candidates.also { fetched ->
+            routeCache.put(
+                request.sourceCurrency, request.targetCurrency,
+                request.transferType, request.amountBucket,
+                requestId, fetched
+            )
+        }
 
         Span.current().apply {
             setAttribute("pricing.strategy", strategy.name)
