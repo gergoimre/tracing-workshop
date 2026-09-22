@@ -5,7 +5,8 @@ data class PrepareTransferRequest(
     val targetCurrency: String,
     val transferType: String,
     val amount: Long,
-    val recipientId: String
+    val recipientId: String,
+    val memo: String? = null
 )
 
 data class PrepareTransferResponse(
@@ -87,4 +88,107 @@ data class PricingResponse(
     val bestRate: Double,
     val provider: String,
     val routeType: String
+)
+
+// auth-service
+data class AuthValidateRequest(
+    val customerId: String,
+    val sessionToken: String
+)
+
+data class AuthValidateResponse(
+    val valid: Boolean,
+    val customerTier: String
+)
+
+// session-store-service
+data class SessionResponse(
+    val token: String,
+    val customerId: String,
+    val valid: Boolean
+)
+
+// risk-service
+data class RiskScoreRequest(
+    val customerId: String,
+    val targetCurrency: String,
+    val amountBucket: String,
+    val memo: String?
+)
+
+data class RiskScoreResponse(
+    val score: Int,
+    val band: String,
+    val approved: Boolean
+)
+
+// device-service
+data class DeviceFingerprintRequest(
+    val customerId: String
+)
+
+data class DeviceFingerprintResponse(
+    val deviceId: String,
+    val trusted: Boolean,
+    val os: String
+)
+
+// screening-service
+data class ScreeningCheckRequest(
+    val term: String,
+    val customerId: String
+)
+
+data class ScreeningCheckResponse(
+    val term: String,
+    val flagged: Boolean
+)
+
+// ledger-service
+data class LedgerReserveRequest(
+    val transferId: String,
+    val sourceCurrency: String,
+    val amount: Long,
+    val provider: String
+)
+
+data class LedgerReserveResponse(
+    val reservationId: String,
+    val accountId: String,
+    val reserved: Boolean
+)
+
+// accounts-service
+data class AccountBalanceResponse(
+    val accountId: String,
+    val currency: String,
+    val balanceMinorUnits: Long,
+    val sufficient: Boolean
+)
+
+// notification-service
+data class NotificationRequest(
+    val customerId: String,
+    val transferId: String,
+    val channel: String,
+    val templateId: String
+)
+
+data class NotificationResponse(
+    val notificationId: String,
+    val channel: String,
+    val queued: Boolean
+)
+
+// audit-service
+data class AuditEventRequest(
+    val eventType: String,
+    val entityId: String,
+    val actorId: String,
+    val payload: String
+)
+
+data class AuditEventResponse(
+    val eventId: String,
+    val recorded: Boolean
 )

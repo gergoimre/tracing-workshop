@@ -1,6 +1,7 @@
 package com.workshop.pricing
 
 import com.workshop.common.FxRateResponse
+import com.workshop.common.LedgerReserveResponse
 import com.workshop.common.RouteCandidate
 import com.workshop.common.RoutingCandidatesResponse
 import io.mockk.every
@@ -34,7 +35,11 @@ class PricingConcurrencyTest {
             routingClient.getCandidates("EUR", "BRL", "BANK_TRANSFER", "10000_PLUS")
         } returns RoutingCandidatesResponse(candidates)
 
-        val controller = PricingController(fxClient, routingClient, RouteCache())
+        val ledgerClient = mockk<LedgerClient>()
+        every { ledgerClient.reserve(any(), any(), any(), any()) } returns
+            LedgerReserveResponse("res-test", "acc-eur-primary", true)
+
+        val controller = PricingController(fxClient, routingClient, RouteCache(), ledgerClient)
 
         val elapsed = measureTime {
             controller.calculatePricing(

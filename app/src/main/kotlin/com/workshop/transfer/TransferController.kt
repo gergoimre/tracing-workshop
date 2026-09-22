@@ -14,14 +14,19 @@ import java.util.UUID
 @RequestMapping("/transfers")
 @ConditionalOnProperty(name = ["APP_ROLE"], havingValue = "transfer")
 class TransferController(
+    private val authClient: AuthClient,
     private val supportClient: SupportClient,
-    private val pricingClient: PricingClient
+    private val riskClient: RiskClient,
+    private val pricingClient: PricingClient,
+    private val notificationClient: NotificationClient,
+    private val auditClient: AuditClient
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @PostMapping("/prepare")
     fun prepare(@RequestBody request: PrepareTransferRequest): PrepareTransferResponse {
         val bucket = amountBucket(request.amount)
+        val sessionToken = "sess-${request.recipientId}-token"
 
         Span.current().apply {
             setAttribute("transfer.source_currency", request.sourceCurrency)
@@ -29,13 +34,19 @@ class TransferController(
             setAttribute("transfer.type", request.transferType)
             setAttribute("transfer.amount_bucket", bucket)
             setAttribute("transfer.recipient_id", request.recipientId)
+            setAttribute("transfer.has_memo", request.memo != null)
         }
 
-        log.info("Preparing transfer: {}→{} {} recipient={} amount_bucket={}",
+        log.info("Preparing transfer: {}→{} {} recipient={} amount_bucket={} memo={}",
             request.sourceCurrency, request.targetCurrency, request.transferType,
-            request.recipientId, bucket)
+            request.recipientId, bucket, request.memo != null)
 
-        val customer = supportClient.getCustomer("cust-${UUID.randomUUID().toString().take(8)}")
+        val customerId = "cust-${UUID.randomUUID().toString().take(8)}"
+
+        val auth = authClient.validate(customerId, sessionToken)
+        log.info("Auth validated: valid={} tier={}", auth.valid, auth.customerTier)
+
+        val customer = supportClient.getCustomer(customerId)
         log.info("Customer loaded: id={}", customer.customerId)
 
         val limits = supportClient.getLimits(customer.customerId)
@@ -44,13 +55,36 @@ class TransferController(
         val compliance = supportClient.screenCompliance(request.recipientId)
         log.info("Compliance cleared: recipientId={} cleared={}", request.recipientId, compliance.cleared)
 
+        val risk = riskClient.score(
+            customerId = customer.customerId,
+            targetCurrency = request.targetCurrency,
+            amountBucket = bucket,
+            memo = request.memo
+        )
+        log.info("Risk scored: score={} band={}", risk.score, risk.band)
+
         val pricing = pricingClient.calculate(
             PricingRequest(request.sourceCurrency, request.targetCurrency, request.transferType, bucket)
         )
         log.info("Pricing complete: strategy={} rate={}", pricing.strategy, pricing.bestRate)
 
         val transferId = "txn-${UUID.randomUUID()}"
-        log.info("Transfer prepared: id={}", transferId)
+
+        val notification = notificationClient.send(
+            customerId = customer.customerId,
+            transferId = transferId,
+            channel = "EMAIL",
+            templateId = "transfer-prepared-v2"
+        )
+        log.info("Notification queued: notificationId={}", notification.notificationId)
+
+        auditClient.record(
+            eventType = "TRANSFER_PREPARED",
+            entityId = transferId,
+            actorId = customer.customerId,
+            payload = """{"sourceCurrency":"${request.sourceCurrency}","targetCurrency":"${request.targetCurrency}","amountBucket":"$bucket"}"""
+        )
+        log.info("Transfer prepared and audited: id={}", transferId)
 
         return PrepareTransferResponse(
             transferId = transferId,

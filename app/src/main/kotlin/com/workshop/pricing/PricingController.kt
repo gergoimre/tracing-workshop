@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.util.UUID
 
 @RestController
 @RequestMapping("/pricing")
@@ -18,7 +19,8 @@ import org.springframework.web.bind.annotation.RestController
 class PricingController(
     private val fxClient: FxClient,
     private val routingClient: RoutingClient,
-    private val routeCache: RouteCache
+    private val routeCache: RouteCache,
+    private val ledgerClient: LedgerClient
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -37,8 +39,7 @@ class PricingController(
 
         val candidates = routeCache.get(
             request.sourceCurrency, request.targetCurrency,
-            request.transferType, request.amountBucket,
-            requestId
+            request.transferType, request.amountBucket
         ) ?: routingClient.getCandidates(
             request.sourceCurrency, request.targetCurrency,
             request.transferType, request.amountBucket
@@ -46,7 +47,7 @@ class PricingController(
             routeCache.put(
                 request.sourceCurrency, request.targetCurrency,
                 request.transferType, request.amountBucket,
-                requestId, fetched
+                fetched
             )
         }
 
@@ -62,6 +63,14 @@ class PricingController(
         }
 
         val best = rates.minByOrNull { it.rate }!!
+
+        val transferId = "txn-pending-${UUID.randomUUID().toString().take(8)}"
+        ledgerClient.reserve(
+            transferId = transferId,
+            sourceCurrency = request.sourceCurrency,
+            amount = 0L,
+            provider = best.provider
+        )
 
         log.info("Pricing complete: bestRate={} provider={} strategy={}", best.rate, best.provider, strategy.name)
 

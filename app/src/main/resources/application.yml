@@ -3,7 +3,7 @@ spring:
     name: ${APP_ROLE:workshop-app}
   threads:
     virtual:
-      enabled: true   # Java 21 virtual threads — blocking I/O without thread exhaustion
+      enabled: true
 
 server:
   port: ${SERVER_PORT:8080}
@@ -21,6 +21,15 @@ workshop:
   pricing-url: ${PRICING_URL:http://localhost:8081}
   fx-url: ${FX_URL:http://localhost:8082}
   support-url: ${SUPPORT_URL:http://localhost:8083}
+  auth-url: ${AUTH_URL:http://localhost:8084}
+  session-url: ${SESSION_URL:http://localhost:8085}
+  risk-url: ${RISK_URL:http://localhost:8086}
+  device-url: ${DEVICE_URL:http://localhost:8087}
+  ledger-url: ${LEDGER_URL:http://localhost:8088}
+  accounts-url: ${ACCOUNTS_URL:http://localhost:8089}
+  notification-url: ${NOTIFICATION_URL:http://localhost:8090}
+  audit-url: ${AUDIT_URL:http://localhost:8091}
+  screening-url: ${SCREENING_URL:http://localhost:8092}
 
 fx:
   delay-ms: ${FX_DELAY_MS:1000}

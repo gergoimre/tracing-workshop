@@ -1,8 +1,6 @@
 name: tracing-workshop
 
 # ── Shared build context ───────────────────────────────────────────────────────
-# The application jar is built on the host before docker compose up --build.
-# The Dockerfile copies the pre-built jar from app/build/libs/.
 x-app-build: &app-build
   context: .
   dockerfile: docker/Dockerfile
@@ -71,9 +69,6 @@ services:
     depends_on:
       tempo:
         condition: service_healthy
-    # The collector image is distroless (no shell/wget/curl) — no healthcheck probe.
-    # App services use depends_on: tempo (healthy) + start_period to ensure
-    # the collector is up before they start sending traces.
 
   grafana:
     image: grafana/grafana:11.2.2
@@ -99,7 +94,129 @@ services:
       retries: 10
       start_period: 10s
 
-  # ── Application services ─────────────────────────────────────────────────────
+  # ── Leaf services (400m) ─────────────────────────────────────────────────────
+
+  session:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: session
+      OTEL_SERVICE_NAME: session-store-service
+      SERVER_PORT: "8085"
+    ports:
+      - "8085:8085"
+    depends_on:
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 400m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  device:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: device
+      OTEL_SERVICE_NAME: device-service
+      SERVER_PORT: "8087"
+    ports:
+      - "8087:8087"
+    depends_on:
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 400m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8087/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  accounts:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: accounts
+      OTEL_SERVICE_NAME: accounts-service
+      SERVER_PORT: "8089"
+    ports:
+      - "8089:8089"
+    depends_on:
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 400m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8089/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  audit:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: audit
+      OTEL_SERVICE_NAME: audit-service
+      SERVER_PORT: "8091"
+    ports:
+      - "8091:8091"
+    depends_on:
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 400m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8091/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  screening:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: screening
+      OTEL_SERVICE_NAME: screening-service
+      SERVER_PORT: "8092"
+    ports:
+      - "8092:8092"
+    depends_on:
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 400m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8092/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  # ── Hub services (600m) ──────────────────────────────────────────────────────
 
   fx:
     build: *app-build
@@ -150,6 +267,117 @@ services:
       retries: 20
       start_period: 60s
 
+  auth:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: auth
+      OTEL_SERVICE_NAME: auth-service
+      SERVER_PORT: "8084"
+      SESSION_URL: http://session:8085
+    ports:
+      - "8084:8084"
+    depends_on:
+      session:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 600m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  risk:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: risk
+      OTEL_SERVICE_NAME: risk-service
+      SERVER_PORT: "8086"
+      DEVICE_URL: http://device:8087
+      SCREENING_URL: http://screening:8092
+    ports:
+      - "8086:8086"
+    depends_on:
+      device:
+        condition: service_healthy
+      screening:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 600m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8086/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  ledger:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: ledger
+      OTEL_SERVICE_NAME: ledger-service
+      SERVER_PORT: "8088"
+      ACCOUNTS_URL: http://accounts:8089
+    ports:
+      - "8088:8088"
+    depends_on:
+      accounts:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 600m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8088/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  notification:
+    build: *app-build
+    image: tracing-workshop-app:latest
+    environment:
+      <<: *otel-env
+      APP_ROLE: notification
+      OTEL_SERVICE_NAME: notification-service
+      SERVER_PORT: "8090"
+      AUDIT_URL: http://audit:8091
+    ports:
+      - "8090:8090"
+    depends_on:
+      audit:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 600m
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8090/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
   pricing:
     build: *app-build
     image: tracing-workshop-app:latest
@@ -160,12 +388,17 @@ services:
       SERVER_PORT: "8081"
       FX_URL: http://fx:8082
       SUPPORT_URL: http://support:8083
+      LEDGER_URL: http://ledger:8088
     ports:
       - "8081:8081"
     depends_on:
       fx:
         condition: service_healthy
       support:
+        condition: service_healthy
+      ledger:
+        condition: service_healthy
+      tempo:
         condition: service_healthy
     deploy:
       resources:
@@ -188,12 +421,26 @@ services:
       SERVER_PORT: "8080"
       PRICING_URL: http://pricing:8081
       SUPPORT_URL: http://support:8083
+      AUTH_URL: http://auth:8084
+      RISK_URL: http://risk:8086
+      NOTIFICATION_URL: http://notification:8090
+      AUDIT_URL: http://audit:8091
     ports:
       - "8080:8080"
     depends_on:
       pricing:
         condition: service_healthy
       support:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+      risk:
+        condition: service_healthy
+      notification:
+        condition: service_healthy
+      audit:
+        condition: service_healthy
+      tempo:
         condition: service_healthy
     deploy:
       resources:

@@ -1,15 +1,14 @@
 package com.workshop.pricing
 
 import com.workshop.common.FxRateResponse
+import com.workshop.common.LedgerReserveResponse
 import com.workshop.common.RouteCandidate
 import com.workshop.common.RoutingCandidatesResponse
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
-@Disabled("Enable after applying solution.patch — see WORKSHOP.md")
 class RouteCacheTest {
 
     @Test
@@ -25,16 +24,17 @@ class RouteCacheTest {
         every { fxClient.getRate(any(), any(), any()) } returns
             FxRateResponse("EUR", "USD", 1.08, "provider-a", "LOCAL_PAYOUT")
 
+        val ledgerClient = mockk<LedgerClient>()
+        every { ledgerClient.reserve(any(), any(), any(), any()) } returns
+            LedgerReserveResponse("res-test", "acc-eur-primary", true)
+
         val cache = RouteCache()
-        val controller = PricingController(fxClient, routingClient, cache)
+        val controller = PricingController(fxClient, routingClient, cache, ledgerClient)
         val request = com.workshop.common.PricingRequest("EUR", "USD", "BANK_TRANSFER", "BELOW_10000")
 
-        // Two requests with the same routing parameters but different requestIds
-        // After the fix: both should use the same cache entry (requestId not in key)
         controller.calculatePricing(request, "request-A")
         controller.calculatePricing(request, "request-B")
 
-        // Routing should only be called once — second request hits cache
         verify(exactly = 1) { routingClient.getCandidates(any(), any(), any(), any()) }
     }
 }
