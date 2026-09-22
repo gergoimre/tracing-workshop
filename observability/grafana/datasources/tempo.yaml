@@ -25,6 +25,9 @@ datasources:
         filterByTraceID: true
         filterBySpanID: false
         customQuery: false
+        tags:
+          - key: service.name
+            value: service_name
   - uid: loki-workshop
     name: Loki
     type: loki

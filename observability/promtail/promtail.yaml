@@ -18,10 +18,6 @@ scrape_configs:
           - name: label
             values: ["com.docker.compose.project=tracing-workshop"]
     relabel_configs:
-      - source_labels: [__meta_docker_container_name]
-        regex: /tracing-workshop-(.+)-\d+
-        target_label: service
-        replacement: "$1"
       - source_labels: [__meta_docker_container_label_com_docker_compose_service]
         target_label: compose_service
       - source_labels: [compose_service]
@@ -34,9 +30,11 @@ scrape_configs:
             message: message
             trace_id: trace_id
             span_id: span_id
+            service_name: service_name
       - labels:
           level:
           trace_id:
           span_id:
+          service_name:
       - output:
           source: message
