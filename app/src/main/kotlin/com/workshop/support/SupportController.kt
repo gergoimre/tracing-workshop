@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.*
 @ConditionalOnProperty(name = ["APP_ROLE"], havingValue = "support")
 class SupportController {
 
-    // ── Customer ──────────────────────────────────────────────────────────────
-
     @GetMapping("/customer/{id}")
     fun getCustomer(@PathVariable id: String): CustomerResponse =
         CustomerResponse(
@@ -24,31 +22,23 @@ class SupportController {
             )
         )
 
-    // ── Limits ────────────────────────────────────────────────────────────────
-
     @GetMapping("/limits/{customerId}")
     fun getLimits(@PathVariable customerId: String): LimitsResponse =
         LimitsResponse(customerId = customerId, dailyLimitGbp = 50_000L, withinLimit = true)
 
-    // ── Compliance — single (used by the buggy transfer service) ──────────────
-
+    // Single-item compliance screen — used by the buggy transfer service (Bug #2)
     @PostMapping("/compliance/screen")
     fun screenSingle(@RequestBody request: ComplianceScreenRequest): ComplianceResult {
-        // Enrich the agent's span with the beneficiary index so each repeated
-        // span is distinguishable in the waterfall.
         Span.current().setAttribute("compliance.beneficiary_index", request.beneficiaryIndex.toLong())
         return ComplianceResult(beneficiaryId = request.beneficiaryId, cleared = true)
     }
 
-    // ── Compliance — batch (used after fix) ───────────────────────────────────
-
+    // Batch compliance screen — used after the fix
     @PostMapping("/compliance/screenBatch")
     fun screenBatch(@RequestBody request: ComplianceScreenBatchRequest): ComplianceBatchResult =
         ComplianceBatchResult(
             results = request.beneficiaries.map { ComplianceResult(beneficiaryId = it.id, cleared = true) }
         )
-
-    // ── Routing candidates ────────────────────────────────────────────────────
 
     @GetMapping("/routing/candidates")
     fun routingCandidates(
@@ -57,7 +47,6 @@ class SupportController {
         @RequestParam transferType: String,
         @RequestParam amountBucket: String
     ): RoutingCandidatesResponse {
-        // MULTI_ROUTE path: EUR→BRL BANK_TRANSFER 10000_PLUS gets 3 candidates
         val candidates = if (
             sourceCurrency == "EUR" &&
             targetCurrency == "BRL" &&

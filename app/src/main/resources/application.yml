@@ -1,6 +1,9 @@
 spring:
   application:
     name: ${APP_ROLE:workshop-app}
+  threads:
+    virtual:
+      enabled: true   # Java 21 virtual threads — blocking I/O without thread exhaustion
 
 server:
   port: ${SERVER_PORT:8080}

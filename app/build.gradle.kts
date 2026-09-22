@@ -27,31 +27,22 @@ dependencyManagement {
 }
 
 dependencies {
-    // Spring WebFlux (reactive + coroutines)
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
+    // Spring MVC + virtual threads (Java 21) — blocking code, no coroutines needed
+    implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
-
-    // Kotlin coroutines
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0")
 
     // OpenTelemetry API only — the Java agent provides the SDK at runtime
     implementation("io.opentelemetry:opentelemetry-api")
-    // @WithSpan / @SpanAttribute annotations — processed by the Java agent at runtime
+    // @WithSpan / @SpanAttribute — processed by the Java agent; zero boilerplate
     implementation("io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.8.0")
-    // Kotlin coroutine context propagation — carries OTel Context across suspend boundaries
-    implementation("io.opentelemetry:opentelemetry-extension-kotlin")
 
     // Structured JSON logging — emits trace_id/span_id in every log line
     implementation("net.logstash.logback:logstash-logback-encoder:8.0")
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("io.projectreactor:reactor-test")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("io.mockk:mockk:1.13.12")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 }

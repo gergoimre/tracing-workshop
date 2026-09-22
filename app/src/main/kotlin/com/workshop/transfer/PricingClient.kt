@@ -2,23 +2,16 @@ package com.workshop.transfer
 
 import com.workshop.common.PricingRequest
 import com.workshop.common.PricingResponse
-import io.opentelemetry.extension.kotlin.asContextElement
-import io.opentelemetry.context.Context
-import kotlinx.coroutines.withContext
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
-import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.reactive.function.client.awaitBody
+import org.springframework.web.client.RestClient
+import org.springframework.web.client.body
 
 @Component
-class PricingClient(@Qualifier("pricingWebClient") private val webClient: WebClient) {
+class PricingClient(@Qualifier("pricingRestClient") private val restClient: RestClient) {
 
-    suspend fun calculate(request: PricingRequest): PricingResponse =
-        withContext(Context.current().asContextElement()) {
-            webClient.post()
-                .uri("/pricing/calculate")
-                .bodyValue(request)
-                .retrieve()
-                .awaitBody()
-        }
+    fun calculate(request: PricingRequest): PricingResponse =
+        restClient.post().uri("/pricing/calculate")
+            .body(request)
+            .retrieve().body<PricingResponse>()!!
 }

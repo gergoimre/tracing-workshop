@@ -1,48 +1,27 @@
 package com.workshop.transfer
 
 import com.workshop.common.*
-import io.opentelemetry.extension.kotlin.asContextElement
-import io.opentelemetry.context.Context
-import kotlinx.coroutines.withContext
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
-import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.reactive.function.client.awaitBody
+import org.springframework.web.client.RestClient
+import org.springframework.web.client.body
 
 @Component
-class SupportClient(@Qualifier("supportWebClient") private val webClient: WebClient) {
+class SupportClient(@Qualifier("supportRestClient") private val restClient: RestClient) {
 
-    suspend fun getCustomer(customerId: String): CustomerResponse =
-        withContext(Context.current().asContextElement()) {
-            webClient.get()
-                .uri("/customer/$customerId")
-                .retrieve()
-                .awaitBody()
-        }
+    fun getCustomer(customerId: String): CustomerResponse =
+        restClient.get().uri("/customer/$customerId").retrieve().body<CustomerResponse>()!!
 
-    suspend fun getLimits(customerId: String): LimitsResponse =
-        withContext(Context.current().asContextElement()) {
-            webClient.get()
-                .uri("/limits/$customerId")
-                .retrieve()
-                .awaitBody()
-        }
+    fun getLimits(customerId: String): LimitsResponse =
+        restClient.get().uri("/limits/$customerId").retrieve().body<LimitsResponse>()!!
 
-    suspend fun screenCompliance(beneficiaryId: String, beneficiaryIndex: Int): ComplianceResult =
-        withContext(Context.current().asContextElement()) {
-            webClient.post()
-                .uri("/compliance/screen")
-                .bodyValue(ComplianceScreenRequest(beneficiaryId, beneficiaryIndex))
-                .retrieve()
-                .awaitBody()
-        }
+    fun screenCompliance(beneficiaryId: String, beneficiaryIndex: Int): ComplianceResult =
+        restClient.post().uri("/compliance/screen")
+            .body(ComplianceScreenRequest(beneficiaryId, beneficiaryIndex))
+            .retrieve().body<ComplianceResult>()!!
 
-    suspend fun screenComplianceBatch(beneficiaries: List<Beneficiary>): ComplianceBatchResult =
-        withContext(Context.current().asContextElement()) {
-            webClient.post()
-                .uri("/compliance/screenBatch")
-                .bodyValue(ComplianceScreenBatchRequest(beneficiaries))
-                .retrieve()
-                .awaitBody()
-        }
+    fun screenComplianceBatch(beneficiaries: List<Beneficiary>): ComplianceBatchResult =
+        restClient.post().uri("/compliance/screenBatch")
+            .body(ComplianceScreenBatchRequest(beneficiaries))
+            .retrieve().body<ComplianceBatchResult>()!!
 }

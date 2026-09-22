@@ -2,14 +2,8 @@ package com.workshop.pricing
 
 import com.workshop.common.PricingRequest
 import com.workshop.common.PricingResponse
-import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.trace.Span
-import io.opentelemetry.api.trace.SpanKind
-import io.opentelemetry.context.Context
-import io.opentelemetry.extension.kotlin.asContextElement
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
+import io.opentelemetry.instrumentation.annotations.WithSpan
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
@@ -25,84 +19,60 @@ class PricingController(
     private val routingClient: RoutingClient
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    // Note: @WithSpan is not used here. On Spring-proxied beans the agent's
-    // bytecode instrumentation fires twice (once on the proxy, once on the
-    // concrete method), producing duplicate nested spans. Manual span creation
-    // with tracer.spanBuilder() is explicit and collision-free.
-    private val tracer = GlobalOpenTelemetry.getTracer("com.workshop.pricing", "0.0.1")
 
     @PostMapping("/calculate")
-    suspend fun calculate(@RequestBody request: PricingRequest): PricingResponse {
+    fun calculate(@RequestBody request: PricingRequest): PricingResponse =
+        calculatePricing(request)
+
+    // @WithSpan on a separate non-controller method avoids the agent's
+    // SERVER span (which the agent already created for POST /pricing/calculate).
+    // This creates "pricing.calculate" as a clean INTERNAL child span.
+    @WithSpan("pricing.calculate")
+    fun calculatePricing(request: PricingRequest): PricingResponse {
         val strategy = StrategyRules.resolve(
-            request.sourceCurrency,
-            request.targetCurrency,
-            request.transferType,
-            request.amountBucket
+            request.sourceCurrency, request.targetCurrency,
+            request.transferType, request.amountBucket
         )
+        val candidates = routingClient.getCandidates(
+            request.sourceCurrency, request.targetCurrency,
+            request.transferType, request.amountBucket
+        ).candidates
 
-        val candidates = withContext(Context.current().asContextElement()) {
-            routingClient.getCandidates(
-                request.sourceCurrency,
-                request.targetCurrency,
-                request.transferType,
-                request.amountBucket
-            ).candidates
+        // Enrich the span @WithSpan created.
+        Span.current().apply {
+            setAttribute("pricing.strategy", strategy.name)
+            setAttribute("pricing.route_candidate_count", candidates.size.toLong())
         }
-
-        // Manually create pricing.calculate as a child of the agent's server
-        // span — clean, single span, no proxy duplication.
-        val pricingSpan = tracer.spanBuilder("pricing.calculate")
-            .setSpanKind(SpanKind.INTERNAL)
-            .setParent(Context.current())
-            .startSpan()
-        pricingSpan.setAttribute("pricing.strategy", strategy.name)
-        pricingSpan.setAttribute("pricing.route_candidate_count", candidates.size.toLong())
-
-        val pricingContext = Context.current().with(pricingSpan)
 
         log.info("Calculating pricing: strategy={} candidates={}", strategy.name, candidates.size)
 
-        return try {
-            // ──────────────────────────────────────────────────────────────────
-            // BUG #1: The async { }.await() pattern inside map looks concurrent
-            // but forces sequential execution — each coroutine is started and
-            // immediately awaited before the next one is launched.
-            //
-            // The fix (in solution.patch) is:
-            //   coroutineScope { candidates.map { async { fxClient.getRate(...) } }.awaitAll() }
-            // ──────────────────────────────────────────────────────────────────
-            val rates = candidates.map { candidate ->
-                coroutineScope {
-                    async {
-                        fxClient.getRate(
-                            request.sourceCurrency,
-                            request.targetCurrency,
-                            candidate,
-                            pricingContext
-                        )
-                    }.await()  // <-- awaited immediately: sequential, not concurrent
-                }
-            }
-
-            val best = rates.minByKey { it.rate }
-
-            // This log line looks perfectly normal. The 1-second-per-call
-            // sequential behaviour is invisible here.
-            log.info("Pricing complete: bestRate={} provider={} strategy={}",
-                best.rate, best.provider, strategy.name)
-
-            PricingResponse(
-                strategy = strategy.name,
-                routeCandidateCount = candidates.size,
-                bestRate = best.rate,
-                provider = best.provider,
-                routeType = best.routeType
-            )
-        } finally {
-            pricingSpan.end()
+        // ──────────────────────────────────────────────────────────────────
+        // BUG #1: Each FX call is made sequentially in a plain loop.
+        // Each call takes ~1s, so 3 candidates = ~3s total.
+        //
+        // The bug is subtle because the code looks like ordinary iteration —
+        // there is no obvious indication that these calls could run in parallel.
+        // In a trace, the three fx.call spans appear end-to-end in the waterfall.
+        //
+        // The fix (in solution.patch) replaces this with parallel execution:
+        //   val rates = candidates.parallelStream()
+        //       .map { fxClient.getRate(request.sourceCurrency, request.targetCurrency, it) }
+        //       .toList()
+        // ──────────────────────────────────────────────────────────────────
+        val rates = candidates.map { candidate ->
+            fxClient.getRate(request.sourceCurrency, request.targetCurrency, candidate)
         }
+
+        val best = rates.minByOrNull { it.rate }!!
+
+        log.info("Pricing complete: bestRate={} provider={} strategy={}", best.rate, best.provider, strategy.name)
+
+        return PricingResponse(
+            strategy = strategy.name,
+            routeCandidateCount = candidates.size,
+            bestRate = best.rate,
+            provider = best.provider,
+            routeType = best.routeType
+        )
     }
 }
-
-private fun <T, R : Comparable<R>> List<T>.minByKey(selector: (T) -> R): T =
-    minByOrNull(selector) ?: throw NoSuchElementException("Empty list")

@@ -3,7 +3,6 @@ package com.workshop.fx
 import com.workshop.common.FxRateRequest
 import com.workshop.common.FxRateResponse
 import io.opentelemetry.api.trace.Span
-import kotlinx.coroutines.delay
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
@@ -19,17 +18,17 @@ class FxController(
 ) {
 
     @PostMapping("/rate")
-    suspend fun getRate(@RequestBody request: FxRateRequest): FxRateResponse {
-        // The OTel agent already created the SERVER span for this HTTP request.
-        // Enrich it with business attributes — no new span needed.
-        val span = Span.current()
-        span.setAttribute("fx.source_currency", request.sourceCurrency)
-        span.setAttribute("fx.target_currency", request.targetCurrency)
-        span.setAttribute("fx.provider", request.provider)
-        span.setAttribute("route.type", request.routeType)
+    fun getRate(@RequestBody request: FxRateRequest): FxRateResponse {
+        // The agent created the SERVER span. Attach business attributes to it.
+        Span.current().apply {
+            setAttribute("fx.source_currency", request.sourceCurrency)
+            setAttribute("fx.target_currency", request.targetCurrency)
+            setAttribute("fx.provider", request.provider)
+            setAttribute("route.type", request.routeType)
+        }
 
         // Simulated FX provider latency — expected and consistent
-        delay(delayMs)
+        Thread.sleep(delayMs)
 
         return FxRateResponse(
             sourceCurrency = request.sourceCurrency,

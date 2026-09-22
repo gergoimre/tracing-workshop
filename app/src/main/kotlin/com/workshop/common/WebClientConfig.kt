@@ -3,7 +3,7 @@ package com.workshop.common
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.client.RestClient
 
 @Configuration
 class WebClientConfig(
@@ -11,15 +11,19 @@ class WebClientConfig(
     @Value("\${workshop.fx-url:http://localhost:8082}") val fxUrl: String,
     @Value("\${workshop.support-url:http://localhost:8083}") val supportUrl: String
 ) {
-    @Bean("pricingWebClient")
-    fun pricingWebClient(builder: WebClient.Builder): WebClient =
+    // RestClient is the Spring MVC blocking equivalent of WebClient.
+    // The OTel Java agent auto-instruments RestClient outgoing calls and
+    // propagates the traceparent header automatically — no manual context
+    // threading required.
+    @Bean("pricingRestClient")
+    fun pricingRestClient(builder: RestClient.Builder): RestClient =
         builder.baseUrl(pricingUrl).build()
 
-    @Bean("fxWebClient")
-    fun fxWebClient(builder: WebClient.Builder): WebClient =
+    @Bean("fxRestClient")
+    fun fxRestClient(builder: RestClient.Builder): RestClient =
         builder.baseUrl(fxUrl).build()
 
-    @Bean("supportWebClient")
-    fun supportWebClient(builder: WebClient.Builder): WebClient =
+    @Bean("supportRestClient")
+    fun supportRestClient(builder: RestClient.Builder): RestClient =
         builder.baseUrl(supportUrl).build()
 }

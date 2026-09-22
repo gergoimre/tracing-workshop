@@ -50,11 +50,7 @@ Once all health checks pass, you will see:
 ## Generate traffic
 
 ```bash
-# Fast requests (baseline)
 ./scripts/generate-traffic.sh
-
-# The interesting request (triggers the bug)
-./scripts/generate-slow-request.sh
 ```
 
 ## Services
@@ -90,10 +86,6 @@ Once all health checks pass, you will see:
 │  Service     │─────────►│   Service      │────────►│  Services      │
 └──────────────┘          └────────────────┘         └────────────────┘
 ```
-
-## Workshop exercises
-
-See [WORKSHOP.md](WORKSHOP.md) for the guided investigation exercises.
 
 ## Troubleshooting
 
