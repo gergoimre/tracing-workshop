@@ -2,6 +2,7 @@ package com.workshop.transfer
 
 import com.workshop.common.*
 import io.opentelemetry.api.trace.Span
+import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -16,24 +17,28 @@ class TransferController(
     private val supportClient: SupportClient,
     private val pricingClient: PricingClient
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @PostMapping("/prepare")
     suspend fun prepare(@RequestBody request: PrepareTransferRequest): PrepareTransferResponse {
         val bucket = amountBucket(request.amount)
 
-        // The OTel agent already created the root SERVER span for this HTTP request.
-        // We just enrich it with business attributes — no new span needed.
         val span = Span.current()
         span.setAttribute("transfer.source_currency", request.sourceCurrency)
         span.setAttribute("transfer.target_currency", request.targetCurrency)
         span.setAttribute("transfer.type", request.transferType)
         span.setAttribute("transfer.amount_bucket", bucket)
 
+        log.info("Preparing transfer: {}→{} {} amount_bucket={}",
+            request.sourceCurrency, request.targetCurrency, request.transferType, bucket)
+
         // 1. Customer lookup
         val customer = supportClient.getCustomer("cust-${UUID.randomUUID().toString().take(8)}")
+        log.info("Customer loaded: id={} beneficiaries={}", customer.customerId, customer.beneficiaries.size)
 
         // 2. Limits check
-        supportClient.getLimits(customer.customerId)
+        val limits = supportClient.getLimits(customer.customerId)
+        log.info("Limits checked: withinLimit={}", limits.withinLimit)
 
         // ──────────────────────────────────────────────────────────────────
         // BUG #2: N+1 compliance fan-out.
@@ -42,15 +47,19 @@ class TransferController(
         // this path regardless of currency or amount.
         //
         // The bug looks like ordinary per-item validation in code.
-        // In logs: N separate 200 OK responses, nothing anomalous.
+        // In logs: each compliance call logs "Compliance cleared: true" —
+        //   nothing reveals that N calls were made instead of 1.
         // In a trace: N identical sibling compliance.screen spans are
-        // immediately visible in the waterfall.
+        //   immediately visible in the waterfall.
         //
         // The fix (in solution.patch) is:
         //   supportClient.screenComplianceBatch(customer.beneficiaries)
         // ──────────────────────────────────────────────────────────────────
         customer.beneficiaries.mapIndexed { index, beneficiary ->
-            supportClient.screenCompliance(beneficiary.id, index)
+            val result = supportClient.screenCompliance(beneficiary.id, index)
+            // This log line looks perfectly healthy for every call.
+            // Nothing here reveals that we're making N calls instead of 1.
+            log.info("Compliance cleared: beneficiaryId={} cleared={}", beneficiary.id, result.cleared)
         }
 
         // 4. Pricing
@@ -62,9 +71,13 @@ class TransferController(
                 amountBucket = bucket
             )
         )
+        log.info("Pricing complete: strategy={} rate={}", pricing.strategy, pricing.bestRate)
+
+        val transferId = "txn-${UUID.randomUUID()}"
+        log.info("Transfer prepared: id={}", transferId)
 
         return PrepareTransferResponse(
-            transferId = "txn-${UUID.randomUUID()}",
+            transferId = transferId,
             sourceCurrency = request.sourceCurrency,
             targetCurrency = request.targetCurrency,
             transferType = request.transferType,

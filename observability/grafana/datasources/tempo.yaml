@@ -10,8 +10,6 @@ datasources:
     editable: false
     jsonData:
       httpMethod: GET
-      serviceMap:
-        datasourceUid: tempo
       nodeGraph:
         enabled: true
       traceQuery:
@@ -20,3 +18,29 @@ datasources:
         spanEndTimeShift: -1h
       spanBar:
         type: Duration
+      # Trace-to-logs: clicking a span shows correlated logs from Loki
+      tracesToLogsV2:
+        datasourceUid: loki-workshop
+        spanStartTimeShift: -1m
+        spanEndTimeShift: 1m
+        tags:
+          - key: service.name
+            value: service
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: false
+  - uid: loki-workshop
+    name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    version: 1
+    editable: false
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"trace_id":"([a-f0-9]+)"'
+          url: '$${__value.raw}'
+          datasourceUid: P214B5B846CF3925F
+          urlDisplayLabel: Open trace in Tempo

@@ -1,6 +1,6 @@
 {
   "annotations": { "list": [] },
-  "description": "Workshop starting point — click the links to explore traces",
+  "description": "Workshop starting point — traces and logs side by side",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -11,7 +11,7 @@
       "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
       "id": 1,
       "options": {
-        "content": "## Workshop — Trace Explorer\nClick a link below to open a pre-built query in Explore. Click any **Trace ID** in the results to open the full waterfall.",
+        "content": "## Workshop — Trace Explorer\nUse the links below to investigate. Open a trace waterfall to find the bugs. Compare what logs tell you vs what traces show.",
         "mode": "markdown"
       },
       "title": "",
@@ -19,50 +19,108 @@
       "type": "text"
     },
     {
-      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 2 },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 2 },
       "id": 2,
       "options": {
-        "content": "### All transfer requests\n\nAll `POST /transfers/prepare` traces from the last hour.  \nSort by **Duration** to find the outlier.\n\n**[Open in Explore →](/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22POST%20%2Ftransfers%2Fprepare%5C%22%20%7D%22%2C%22limit%22%3A50%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D)**",
+        "content": "### All transfer traces\n\nSort by **Duration** to spot outliers.\n\n**[Open in Explore →](/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22POST%20%2Ftransfers%2Fprepare%5C%22%20%7D%22%2C%22limit%22%3A50%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D)**",
         "mode": "markdown"
       },
       "title": "1 — Start here",
       "type": "text"
     },
     {
-      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 2 },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 2 },
       "id": 3,
       "options": {
-        "content": "### Slow traces only  (> 2 s)\n\nTraces that exceeded the expected latency threshold.  \nClick a Trace ID and examine the **waterfall**.\n\n**[Open in Explore →](/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22POST%20%2Ftransfers%2Fprepare%5C%22%20%26%26%20duration%20%3E%202s%20%7D%22%2C%22limit%22%3A20%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D)**",
+        "content": "### Slow traces  (> 2 s)\n\nTraces that exceeded the latency threshold.\n\n**[Open in Explore →](/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22POST%20%2Ftransfers%2Fprepare%5C%22%20%26%26%20duration%20%3E%202s%20%7D%22%2C%22limit%22%3A20%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D)**",
         "mode": "markdown"
       },
       "title": "2 — Find the slow trace",
       "type": "text"
     },
     {
-      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 7 },
-      "id": 4,
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 2 },
+      "id": 6,
       "options": {
-        "content": "### TraceQL reference\n\nUse these in Explore → TraceQL tab:\n\n```\n{ resource.service.name = \"transfer-service\"\n  && name = \"POST /transfers/prepare\" }\n```\n```\n{ resource.service.name = \"transfer-service\"\n  && name = \"POST /transfers/prepare\"\n  && duration > 2s }\n```",
+        "content": "### TraceQL reference\n```\n{ resource.service.name = \"transfer-service\"\n  && name = \"POST /transfers/prepare\" }\n```\n```\n{ ... && duration > 2s }\n```\nPaste into **Explore → Tempo → TraceQL tab**",
         "mode": "markdown"
       },
-      "title": "TraceQL queries",
+      "title": "TraceQL",
       "type": "text"
     },
     {
-      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 7 },
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 10,
+      "title": "Logs — transfer-service",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki-workshop" },
+      "description": "Structured logs from the transfer service. Notice: every log line looks healthy — no errors, no warnings. The bugs are invisible here.",
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 7 },
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki-workshop" },
+          "expr": "{service=\"transfer\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Transfer service logs — looks healthy despite the bugs",
+      "type": "logs"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "id": 11,
+      "title": "Logs — pricing-service",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki-workshop" },
+      "description": "Pricing service logs. The sequential FX calls produce three normal-looking log lines. No timing info, no indication of sequential vs concurrent.",
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
       "id": 5,
       "options": {
-        "content": "### How to read the waterfall\n\n1. Open a slow trace from the link above\n2. Look at which span takes the most time\n3. Expand the child spans — are they **sequential** or **overlapping**?\n4. Check the **Attributes** tab on each span\n\nThe bug is visible in the **timing**, not in the attribute values.",
-        "mode": "markdown"
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
       },
-      "title": "Investigation tips",
-      "type": "text"
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki-workshop" },
+          "expr": "{service=\"pricing\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Pricing service logs — sequential or concurrent? Impossible to tell.",
+      "type": "logs"
     }
   ],
-  "refresh": "30s",
+  "refresh": "15s",
   "schemaVersion": 39,
   "tags": ["workshop", "tracing"],
-  "time": { "from": "now-1h", "to": "now" },
+  "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "Workshop — Trace Explorer",

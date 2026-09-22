@@ -45,6 +45,9 @@ dependencies {
     // Kotlin coroutine context propagation — carries OTel Context across suspend boundaries
     implementation("io.opentelemetry:opentelemetry-extension-kotlin")
 
+    // Structured JSON logging — emits trace_id/span_id in every log line
+    implementation("net.logstash.logback:logstash-logback-encoder:8.0")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")

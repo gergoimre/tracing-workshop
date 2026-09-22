@@ -10,6 +10,7 @@ import io.opentelemetry.extension.kotlin.asContextElement
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -23,6 +24,7 @@ class PricingController(
     private val fxClient: FxClient,
     private val routingClient: RoutingClient
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
     // Note: @WithSpan is not used here. On Spring-proxied beans the agent's
     // bytecode instrumentation fires twice (once on the proxy, once on the
     // concrete method), producing duplicate nested spans. Manual span creation
@@ -58,6 +60,8 @@ class PricingController(
 
         val pricingContext = Context.current().with(pricingSpan)
 
+        log.info("Calculating pricing: strategy={} candidates={}", strategy.name, candidates.size)
+
         return try {
             // ──────────────────────────────────────────────────────────────────
             // BUG #1: The async { }.await() pattern inside map looks concurrent
@@ -81,6 +85,11 @@ class PricingController(
             }
 
             val best = rates.minByKey { it.rate }
+
+            // This log line looks perfectly normal. The 1-second-per-call
+            // sequential behaviour is invisible here.
+            log.info("Pricing complete: bestRate={} provider={} strategy={}",
+                best.rate, best.provider, strategy.name)
 
             PricingResponse(
                 strategy = strategy.name,

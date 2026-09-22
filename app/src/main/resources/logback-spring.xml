@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Include trace_id and span_id injected by the OTel agent via MDC -->
+            <includeMdcKeyName>trace_id</includeMdcKeyName>
+            <includeMdcKeyName>span_id</includeMdcKeyName>
+            <includeMdcKeyName>trace_flags</includeMdcKeyName>
+            <!-- Use the Spring app name as the service field -->
+            <customFields>{"service":"${spring.application.name:-workshop}"}</customFields>
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <message>message</message>
+                <logger>logger</logger>
+                <level>level</level>
+                <thread>thread</thread>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <!-- Suppress noisy framework logs; keep workshop app logs at INFO -->
+    <logger name="com.workshop" level="INFO"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+    <logger name="reactor" level="WARN"/>
+    <logger name="io.opentelemetry" level="WARN"/>
+
+    <root level="WARN">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+</configuration>
