@@ -40,6 +40,8 @@ dependencies {
 
     // OpenTelemetry API only — the Java agent provides the SDK at runtime
     implementation("io.opentelemetry:opentelemetry-api")
+    // @WithSpan / @SpanAttribute annotations — processed by the Java agent at runtime
+    implementation("io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.8.0")
     // Kotlin coroutine context propagation — carries OTel Context across suspend boundaries
     implementation("io.opentelemetry:opentelemetry-extension-kotlin")
 

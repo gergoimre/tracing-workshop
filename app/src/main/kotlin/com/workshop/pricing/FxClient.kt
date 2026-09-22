@@ -16,6 +16,9 @@ import org.springframework.web.reactive.function.client.awaitBody
 @Component
 class FxClient(@Qualifier("fxWebClient") private val webClient: WebClient) {
 
+    // Note: @WithSpan is intentionally not used — Spring-proxied beans get
+    // duplicate spans from both proxy and bytecode instrumentation.
+    // Manual spanBuilder gives a single, clean span.
     private val tracer = GlobalOpenTelemetry.getTracer("com.workshop.pricing", "0.0.1")
 
     suspend fun getRate(
@@ -24,8 +27,6 @@ class FxClient(@Qualifier("fxWebClient") private val webClient: WebClient) {
         candidate: RouteCandidate,
         parentContext: Context = Context.current()
     ): FxRateResponse {
-        // Create an explicit INTERNAL span for each FX call so it appears
-        // as a named child under pricing.calculate in the waterfall.
         val fxSpan = tracer.spanBuilder("fx.call")
             .setSpanKind(SpanKind.INTERNAL)
             .setParent(parentContext)
@@ -35,8 +36,6 @@ class FxClient(@Qualifier("fxWebClient") private val webClient: WebClient) {
         fxSpan.setAttribute("fx.provider", candidate.provider)
         fxSpan.setAttribute("route.type", candidate.routeType)
 
-        // Carry the fx span context into the coroutine so the agent-instrumented
-        // WebClient call is correctly nested under it.
         val fxContext = parentContext.with(fxSpan)
         return try {
             withContext(fxContext.asContextElement()) {
