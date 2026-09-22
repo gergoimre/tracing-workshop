@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 
-@Component
+@Component("notificationAuditClient")
 @ConditionalOnProperty(name = ["APP_ROLE"], havingValue = "notification")
 class AuditClient(@Qualifier("auditRestClient") private val restClient: RestClient) {
 

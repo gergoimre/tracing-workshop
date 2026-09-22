@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 
-@Component
+@Component("transferAuditClient")
 class AuditClient(@Qualifier("auditRestClient") private val restClient: RestClient) {
 
     fun record(eventType: String, entityId: String, actorId: String, payload: String): AuditEventResponse =

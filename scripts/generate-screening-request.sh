@@ -7,7 +7,7 @@ echo ""
 echo "Sending memo+USD+10000 request to trigger Bug #2 (risk screening fan-out)..."
 echo ""
 
-START=$(date +%s%3N)
+START=$(date +%s)
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/transfers/prepare" \
   -H "Content-Type: application/json" \
@@ -23,8 +23,8 @@ RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/transfers/prepare" \
 HTTP_CODE=$(echo "$RESPONSE" | tail -1)
 BODY=$(echo "$RESPONSE" | head -1)
 
-END=$(date +%s%3N)
-ELAPSED=$(( END - START ))
+END=$(date +%s)
+ELAPSED=$(( (END - START) * 1000 ))
 
 if [ "$HTTP_CODE" = "200" ]; then
   echo "  GBP→USD 12000 with memo — OK (~${ELAPSED}ms)"

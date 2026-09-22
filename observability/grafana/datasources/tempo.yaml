@@ -22,9 +22,10 @@ datasources:
         datasourceUid: loki-workshop
         spanStartTimeShift: -1m
         spanEndTimeShift: 1m
-        filterByTraceID: true
+        filterByTraceID: false
         filterBySpanID: false
-        customQuery: false
+        customQuery: true
+        query: '{service_name="${__tags[service.name]}"} | trace_id = "${__traceId}"'
         tags:
           - key: service.name
             value: service_name
