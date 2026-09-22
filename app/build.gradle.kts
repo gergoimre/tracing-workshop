@@ -40,6 +40,8 @@ dependencies {
 
     // OpenTelemetry API only — the Java agent provides the SDK at runtime
     implementation("io.opentelemetry:opentelemetry-api")
+    // Kotlin coroutine context propagation — carries OTel Context across suspend boundaries
+    implementation("io.opentelemetry:opentelemetry-extension-kotlin")
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")

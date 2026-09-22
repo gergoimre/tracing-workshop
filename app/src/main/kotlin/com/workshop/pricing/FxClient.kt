@@ -6,6 +6,8 @@ import com.workshop.common.RouteCandidate
 import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.context.Context
+import io.opentelemetry.extension.kotlin.asContextElement
+import kotlinx.coroutines.withContext
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
@@ -24,8 +26,6 @@ class FxClient(@Qualifier("fxWebClient") private val webClient: WebClient) {
     ): FxRateResponse {
         // Create an explicit INTERNAL span for each FX call so it appears
         // as a named child under pricing.calculate in the waterfall.
-        // The HTTP CLIENT span for the actual WebClient call is created
-        // automatically by the OTel agent, nested under this span.
         val fxSpan = tracer.spanBuilder("fx.call")
             .setSpanKind(SpanKind.INTERNAL)
             .setParent(parentContext)
@@ -35,24 +35,25 @@ class FxClient(@Qualifier("fxWebClient") private val webClient: WebClient) {
         fxSpan.setAttribute("fx.provider", candidate.provider)
         fxSpan.setAttribute("route.type", candidate.routeType)
 
-        // Make this span current so the WebClient call (auto-instrumented)
-        // is correctly nested under it.
-        val scope = fxSpan.makeCurrent()
+        // Carry the fx span context into the coroutine so the agent-instrumented
+        // WebClient call is correctly nested under it.
+        val fxContext = parentContext.with(fxSpan)
         return try {
-            webClient.post()
-                .uri("/fx/rate")
-                .bodyValue(
-                    FxRateRequest(
-                        sourceCurrency = sourceCurrency,
-                        targetCurrency = targetCurrency,
-                        provider = candidate.provider,
-                        routeType = candidate.routeType
+            withContext(fxContext.asContextElement()) {
+                webClient.post()
+                    .uri("/fx/rate")
+                    .bodyValue(
+                        FxRateRequest(
+                            sourceCurrency = sourceCurrency,
+                            targetCurrency = targetCurrency,
+                            provider = candidate.provider,
+                            routeType = candidate.routeType
+                        )
                     )
-                )
-                .retrieve()
-                .awaitBody()
+                    .retrieve()
+                    .awaitBody()
+            }
         } finally {
-            scope.close()
             fxSpan.end()
         }
     }
