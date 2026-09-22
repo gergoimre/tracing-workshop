@@ -51,7 +51,7 @@ services:
     # the collector is up before they start sending traces.
 
   grafana:
-    image: grafana/grafana:11.3.0
+    image: grafana/grafana:11.2.2
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin

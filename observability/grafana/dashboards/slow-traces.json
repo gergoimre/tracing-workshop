@@ -1,181 +1,62 @@
 {
   "annotations": { "list": [] },
-  "description": "Workshop starter — find slow and high-span-count traces",
+  "description": "Workshop starting point — click the links to explore traces",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": false,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": true,
-      "title": "Open Explore (Tempo)",
-      "tooltip": "",
-      "type": "link",
-      "url": "/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B+resource.service.name+%3D+%5C%22transfer-service%5C%22+%26%26+name+%3D+%5C%22POST+%2Ftransfers%2Fprepare%5C%22+%7D%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D"
-    }
-  ],
+  "links": [],
   "panels": [
     {
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
-      "id": 10,
-      "title": "Start here",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "P214B5B846CF3925F"
-      },
-      "description": "All transfer.prepare traces from the last hour. Look for outliers in the Duration column.",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "custom": {
-            "align": "auto",
-            "cellOptions": { "type": "auto" },
-            "filterable": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 1000 },
-              { "color": "red", "value": 2000 }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Duration" },
-            "properties": [
-              { "id": "unit", "value": "ms" },
-              { "id": "custom.width", "value": 120 }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Trace ID" },
-            "properties": [
-              { "id": "custom.width", "value": 280 },
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "Open trace",
-                    "url": "/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceId%22%2C%22query%22%3A%22${__value.raw}%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 1 },
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
       "id": 1,
       "options": {
-        "cellHeight": "sm",
-        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
-        "showHeader": true,
-        "sortBy": [{ "desc": true, "displayName": "Duration" }]
+        "content": "## Workshop — Trace Explorer\nClick a link below to open a pre-built query in Explore. Click any **Trace ID** in the results to open the full waterfall.",
+        "mode": "markdown"
       },
-      "pluginVersion": "11.3.0",
-      "targets": [
-        {
-          "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
-          "hide": false,
-          "limit": 50,
-          "query": "{ resource.service.name = \"transfer-service\" && name = \"POST /transfers/prepare\" }",
-          "queryType": "traceql",
-          "refId": "A",
-          "tableType": "traces"
-        }
-      ],
-      "title": "All transfer.prepare traces — sort by Duration to find outliers",
-      "transformations": [],
-      "type": "table"
+      "title": "",
+      "transparent": true,
+      "type": "text"
     },
     {
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
-      "id": 11,
-      "title": "Slow traces only",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "P214B5B846CF3925F"
-      },
-      "description": "Traces where root span duration exceeds 2 seconds. Click a Trace ID to open the waterfall.",
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "custom": {
-            "align": "auto",
-            "cellOptions": { "type": "auto" },
-            "filterable": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 2000 }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Duration" },
-            "properties": [
-              { "id": "unit", "value": "ms" },
-              { "id": "custom.width", "value": 120 }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Trace ID" },
-            "properties": [
-              { "id": "custom.width", "value": 280 },
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "Open trace",
-                    "url": "/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceId%22%2C%22query%22%3A%22${__value.raw}%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 2 },
       "id": 2,
       "options": {
-        "cellHeight": "sm",
-        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
-        "showHeader": true,
-        "sortBy": [{ "desc": true, "displayName": "Duration" }]
+        "content": "### All transfer requests\n\nAll `POST /transfers/prepare` traces from the last hour.  \nSort by **Duration** to find the outlier.\n\n**[Open in Explore →](/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22POST%20%2Ftransfers%2Fprepare%5C%22%20%7D%22%2C%22limit%22%3A50%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D)**",
+        "mode": "markdown"
       },
-      "pluginVersion": "11.3.0",
-      "targets": [
-        {
-          "datasource": { "type": "tempo", "uid": "P214B5B846CF3925F" },
-          "hide": false,
-          "limit": 20,
-          "query": "{ resource.service.name = \"transfer-service\" && name = \"POST /transfers/prepare\" && duration > 2s }",
-          "queryType": "traceql",
-          "refId": "A",
-          "tableType": "traces"
-        }
-      ],
-      "title": "Slow traces  (duration > 2s) — click Trace ID to open waterfall",
-      "transformations": [],
-      "type": "table"
+      "title": "1 — Start here",
+      "type": "text"
+    },
+    {
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 2 },
+      "id": 3,
+      "options": {
+        "content": "### Slow traces only  (> 2 s)\n\nTraces that exceeded the expected latency threshold.  \nClick a Trace ID and examine the **waterfall**.\n\n**[Open in Explore →](/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22POST%20%2Ftransfers%2Fprepare%5C%22%20%26%26%20duration%20%3E%202s%20%7D%22%2C%22limit%22%3A20%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D)**",
+        "mode": "markdown"
+      },
+      "title": "2 — Find the slow trace",
+      "type": "text"
+    },
+    {
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 7 },
+      "id": 4,
+      "options": {
+        "content": "### TraceQL reference\n\nUse these in Explore → TraceQL tab:\n\n```\n{ resource.service.name = \"transfer-service\"\n  && name = \"POST /transfers/prepare\" }\n```\n```\n{ resource.service.name = \"transfer-service\"\n  && name = \"POST /transfers/prepare\"\n  && duration > 2s }\n```",
+        "mode": "markdown"
+      },
+      "title": "TraceQL queries",
+      "type": "text"
+    },
+    {
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 7 },
+      "id": 5,
+      "options": {
+        "content": "### How to read the waterfall\n\n1. Open a slow trace from the link above\n2. Look at which span takes the most time\n3. Expand the child spans — are they **sequential** or **overlapping**?\n4. Check the **Attributes** tab on each span\n\nThe bug is visible in the **timing**, not in the attribute values.",
+        "mode": "markdown"
+      },
+      "title": "Investigation tips",
+      "type": "text"
     }
   ],
   "refresh": "30s",
