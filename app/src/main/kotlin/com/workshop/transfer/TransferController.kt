@@ -23,7 +23,6 @@ class TransferController(
     fun prepare(@RequestBody request: PrepareTransferRequest): PrepareTransferResponse {
         val bucket = amountBucket(request.amount)
 
-        // The agent created the SERVER span. Attach business attributes to it.
         Span.current().apply {
             setAttribute("transfer.source_currency", request.sourceCurrency)
             setAttribute("transfer.target_currency", request.targetCurrency)
@@ -40,21 +39,6 @@ class TransferController(
         val limits = supportClient.getLimits(customer.customerId)
         log.info("Limits checked: withinLimit={}", limits.withinLimit)
 
-        // ──────────────────────────────────────────────────────────────────
-        // BUG #2: N+1 compliance fan-out.
-        // Each beneficiary is screened with a separate HTTP call instead of
-        // one batched call. This is always-on — every transfer goes through
-        // this path regardless of currency or amount.
-        //
-        // The bug looks like ordinary per-item validation in code.
-        // In logs: each call logs "Compliance cleared: true" — nothing
-        //   reveals that N calls were made instead of 1.
-        // In a trace: N identical sibling compliance.screen spans are
-        //   immediately visible in the waterfall.
-        //
-        // The fix (in solution.patch) is:
-        //   supportClient.screenComplianceBatch(customer.beneficiaries)
-        // ──────────────────────────────────────────────────────────────────
         customer.beneficiaries.forEachIndexed { index, beneficiary ->
             val result = supportClient.screenCompliance(beneficiary.id, index)
             log.info("Compliance cleared: beneficiaryId={} cleared={}", beneficiary.id, result.cleared)

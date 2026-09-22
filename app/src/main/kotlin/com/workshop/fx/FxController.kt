@@ -19,7 +19,6 @@ class FxController(
 
     @PostMapping("/rate")
     fun getRate(@RequestBody request: FxRateRequest): FxRateResponse {
-        // The agent created the SERVER span. Attach business attributes to it.
         Span.current().apply {
             setAttribute("fx.source_currency", request.sourceCurrency)
             setAttribute("fx.target_currency", request.targetCurrency)
@@ -27,7 +26,6 @@ class FxController(
             setAttribute("route.type", request.routeType)
         }
 
-        // Simulated FX provider latency — expected and consistent
         Thread.sleep(delayMs)
 
         return FxRateResponse(

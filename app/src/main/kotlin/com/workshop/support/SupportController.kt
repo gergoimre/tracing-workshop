@@ -26,14 +26,12 @@ class SupportController {
     fun getLimits(@PathVariable customerId: String): LimitsResponse =
         LimitsResponse(customerId = customerId, dailyLimitGbp = 50_000L, withinLimit = true)
 
-    // Single-item compliance screen — used by the buggy transfer service (Bug #2)
     @PostMapping("/compliance/screen")
     fun screenSingle(@RequestBody request: ComplianceScreenRequest): ComplianceResult {
         Span.current().setAttribute("compliance.beneficiary_index", request.beneficiaryIndex.toLong())
         return ComplianceResult(beneficiaryId = request.beneficiaryId, cleared = true)
     }
 
-    // Batch compliance screen — used after the fix
     @PostMapping("/compliance/screenBatch")
     fun screenBatch(@RequestBody request: ComplianceScreenBatchRequest): ComplianceBatchResult =
         ComplianceBatchResult(

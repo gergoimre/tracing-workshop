@@ -11,15 +11,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.measureTime
 
-/**
- * Verifies that the pricing service fetches FX rates concurrently
- * instead of sequentially.
- *
- * On the buggy implementation (plain map loop) total duration ≈ N × delay.
- * After the fix (parallelStream) total duration ≈ 1 × delay.
- *
- * TODO (workshop): Enable after applying solution.patch — see WORKSHOP.md.
- */
 @Disabled("Enable after applying solution.patch — see WORKSHOP.md")
 class PricingConcurrencyTest {
 
@@ -54,8 +45,7 @@ class PricingConcurrencyTest {
         val maxAllowed = (fxDelayMs * 1.8).milliseconds
         assertTrue(
             elapsed < maxAllowed,
-            "Expected FX requests to run concurrently (~${fxDelayMs}ms) " +
-            "but total was $elapsed. They appear to be sequential."
+            "Expected FX requests to run concurrently (~${fxDelayMs}ms) but total was $elapsed."
         )
     }
 }

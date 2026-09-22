@@ -4,18 +4,7 @@ import com.workshop.common.*
 import io.mockk.*
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
 
-/**
- * Verifies that compliance screening uses a single batch call instead of
- * one call per beneficiary.
- *
- * On the buggy implementation (forEachIndexed loop) screenCompliance is
- * called N times and screenComplianceBatch zero times.
- * After the fix (screenComplianceBatch) it passes.
- *
- * TODO (workshop): Enable after applying solution.patch — see WORKSHOP.md.
- */
 @Disabled("Enable after applying solution.patch — see WORKSHOP.md")
 class ComplianceFanoutTest {
 

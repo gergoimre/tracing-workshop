@@ -13,9 +13,6 @@ import org.springframework.web.client.body
 @Component
 class FxClient(@Qualifier("fxRestClient") private val restClient: RestClient) {
 
-    // @WithSpan creates the "fx.call" child span automatically.
-    // The agent handles start/end/error — no boilerplate needed.
-    // Business attributes are added to the span the annotation created.
     @WithSpan("fx.call")
     fun getRate(sourceCurrency: String, targetCurrency: String, candidate: RouteCandidate): FxRateResponse {
         Span.current().apply {
@@ -25,8 +22,6 @@ class FxClient(@Qualifier("fxRestClient") private val restClient: RestClient) {
             setAttribute("route.type", candidate.routeType)
         }
 
-        // The agent auto-instruments RestClient and propagates the traceparent
-        // header — no manual context threading required.
         return restClient.post()
             .uri("/fx/rate")
             .body(FxRateRequest(sourceCurrency, targetCurrency, candidate.provider, candidate.routeType))

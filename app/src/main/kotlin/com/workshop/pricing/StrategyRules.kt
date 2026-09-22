@@ -2,11 +2,6 @@ package com.workshop.pricing
 
 enum class PricingStrategy { SINGLE_ROUTE, MULTI_ROUTE }
 
-/**
- * Rule table that maps a transfer profile to a pricing strategy.
- * Reads as normal business logic — the MULTI_ROUTE rule is not highlighted
- * and does not reveal the performance bug.
- */
 object StrategyRules {
 
     private data class RuleKey(

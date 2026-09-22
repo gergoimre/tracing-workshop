@@ -11,10 +11,6 @@ class WebClientConfig(
     @Value("\${workshop.fx-url:http://localhost:8082}") val fxUrl: String,
     @Value("\${workshop.support-url:http://localhost:8083}") val supportUrl: String
 ) {
-    // RestClient is the Spring MVC blocking equivalent of WebClient.
-    // The OTel Java agent auto-instruments RestClient outgoing calls and
-    // propagates the traceparent header automatically — no manual context
-    // threading required.
     @Bean("pricingRestClient")
     fun pricingRestClient(builder: RestClient.Builder): RestClient =
         builder.baseUrl(pricingUrl).build()
