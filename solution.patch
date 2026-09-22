@@ -1,108 +1,89 @@
-From 7b072db8098b5950cf5c5e1b9d160b1e74cb0965 Mon Sep 17 00:00:00 2001
+From cfab37d0baaae4c5f4e2751ebddf7cb56bea455c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Gergo=CC=8B=20Imre?= <gergo.imre@wise.com>
-Date: Tue, 22 Sep 2026 11:17:40 +0200
-Subject: [PATCH] Apply fixes: concurrent FX (awaitAll), compliance batch,
+Date: Tue, 22 Sep 2026 18:58:18 +0200
+Subject: [PATCH] Solution: parallelStream for FX, screenComplianceBatch,
  enable regression tests
 
 ---
- .../kotlin/com/workshop/pricing/PricingController.kt   | 10 ++++++----
- .../kotlin/com/workshop/transfer/TransferController.kt |  9 +++------
- .../com/workshop/pricing/PricingConcurrencyTest.kt     |  2 --
- .../com/workshop/transfer/ComplianceFanoutTest.kt      |  2 --
- 4 files changed, 9 insertions(+), 14 deletions(-)
+ .../main/kotlin/com/workshop/pricing/PricingController.kt  | 7 ++++---
+ .../kotlin/com/workshop/transfer/TransferController.kt     | 7 +++----
+ .../kotlin/com/workshop/pricing/PricingConcurrencyTest.kt  | 2 --
+ .../kotlin/com/workshop/transfer/ComplianceFanoutTest.kt   | 2 --
+ 4 files changed, 7 insertions(+), 11 deletions(-)
 
 diff --git a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-index 372f953..2984003 100644
+index 19fe25f..5338613 100644
 --- a/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
 +++ b/app/src/main/kotlin/com/workshop/pricing/PricingController.kt
-@@ -8,6 +8,7 @@ import io.opentelemetry.api.trace.SpanKind
- import io.opentelemetry.context.Context
- import io.opentelemetry.extension.kotlin.asContextElement
- import kotlinx.coroutines.async
-+import kotlinx.coroutines.awaitAll
- import kotlinx.coroutines.coroutineScope
- import kotlinx.coroutines.withContext
- import org.slf4j.LoggerFactory
-@@ -71,8 +72,9 @@ class PricingController(
-             // The fix (in solution.patch) is:
-             //   coroutineScope { candidates.map { async { fxClient.getRate(...) } }.awaitAll() }
-             // ──────────────────────────────────────────────────────────────────
--            val rates = candidates.map { candidate ->
--                coroutineScope {
-+            // All FX requests launched concurrently, awaited together.
-+            val rates = coroutineScope {
-+                candidates.map { candidate ->
-                     async {
-                         fxClient.getRate(
-                             request.sourceCurrency,
-@@ -80,8 +82,8 @@ class PricingController(
-                             candidate,
-                             pricingContext
-                         )
--                    }.await()  // <-- awaited immediately: sequential, not concurrent
--                }
-+                    }
-+                }.awaitAll()
-             }
+@@ -59,9 +59,10 @@ class PricingController(
+         //       .map { fxClient.getRate(request.sourceCurrency, request.targetCurrency, it) }
+         //       .toList()
+         // ──────────────────────────────────────────────────────────────────
+-        val rates = candidates.map { candidate ->
+-            fxClient.getRate(request.sourceCurrency, request.targetCurrency, candidate)
+-        }
++        // All FX requests execute in parallel via virtual-thread-backed parallelStream.
++        val rates = candidates.parallelStream()
++            .map { fxClient.getRate(request.sourceCurrency, request.targetCurrency, it) }
++            .toList()
  
-             val best = rates.minByKey { it.rate }
+         val best = rates.minByOrNull { it.rate }!!
+ 
 diff --git a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
-index 2d0f45f..559679e 100644
+index 937d416..3379678 100644
 --- a/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
 +++ b/app/src/main/kotlin/com/workshop/transfer/TransferController.kt
-@@ -55,12 +55,9 @@ class TransferController(
+@@ -55,10 +55,9 @@ class TransferController(
          // The fix (in solution.patch) is:
          //   supportClient.screenComplianceBatch(customer.beneficiaries)
          // ──────────────────────────────────────────────────────────────────
--        customer.beneficiaries.mapIndexed { index, beneficiary ->
+-        customer.beneficiaries.forEachIndexed { index, beneficiary ->
 -            val result = supportClient.screenCompliance(beneficiary.id, index)
--            // This log line looks perfectly healthy for every call.
--            // Nothing here reveals that we're making N calls instead of 1.
 -            log.info("Compliance cleared: beneficiaryId={} cleared={}", beneficiary.id, result.cleared)
 -        }
 +        // Single batch compliance call for all beneficiaries.
 +        val batchResult = supportClient.screenComplianceBatch(customer.beneficiaries)
 +        log.info("Compliance batch cleared: count={}", batchResult.results.size)
  
-         // 4. Pricing
          val pricing = pricingClient.calculate(
+             PricingRequest(request.sourceCurrency, request.targetCurrency, request.transferType, bucket)
 diff --git a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
-index 5bab1c6..bb7b91b 100644
+index 496fb80..2d56550 100644
 --- a/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
 +++ b/app/src/test/kotlin/com/workshop/pricing/PricingConcurrencyTest.kt
-@@ -6,7 +6,6 @@ import com.workshop.common.RoutingCandidatesResponse
- import io.mockk.coEvery
+@@ -5,7 +5,6 @@ import com.workshop.common.RouteCandidate
+ import com.workshop.common.RoutingCandidatesResponse
+ import io.mockk.every
  import io.mockk.mockk
- import kotlinx.coroutines.test.runTest
 -import org.junit.jupiter.api.Disabled
  import org.junit.jupiter.api.Test
  import kotlin.test.assertTrue
  import kotlin.time.Duration.Companion.milliseconds
-@@ -23,7 +22,6 @@ import kotlin.time.measureTime
-  * TODO (workshop): Enable this test after applying the fix from solution.patch.
-  *   The test will fail on the buggy code and pass after the fix.
+@@ -20,7 +19,6 @@ import kotlin.time.measureTime
+  *
+  * TODO (workshop): Enable after applying solution.patch — see WORKSHOP.md.
   */
--@Disabled("Enable after applying solution.patch — see WORKSHOP.md Step 9")
+-@Disabled("Enable after applying solution.patch — see WORKSHOP.md")
  class PricingConcurrencyTest {
  
-     private val fxDelayMs = 200L   // short delay so the test stays fast
+     private val fxDelayMs = 200L
 diff --git a/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt b/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
-index b673b26..cd38f18 100644
+index d59da91..9b431c2 100644
 --- a/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
 +++ b/app/src/test/kotlin/com/workshop/transfer/ComplianceFanoutTest.kt
-@@ -3,7 +3,6 @@ package com.workshop.transfer
+@@ -2,7 +2,6 @@ package com.workshop.transfer
+ 
  import com.workshop.common.*
  import io.mockk.*
- import kotlinx.coroutines.test.runTest
 -import org.junit.jupiter.api.Disabled
  import org.junit.jupiter.api.Test
  import kotlin.test.assertEquals
  
-@@ -18,7 +17,6 @@ import kotlin.test.assertEquals
-  * TODO (workshop): Enable this test after applying the fix from solution.patch.
-  *   The test will fail on the buggy code and pass after the fix.
+@@ -16,7 +15,6 @@ import kotlin.test.assertEquals
+  *
+  * TODO (workshop): Enable after applying solution.patch — see WORKSHOP.md.
   */
--@Disabled("Enable after applying solution.patch — see WORKSHOP.md Step 9")
+-@Disabled("Enable after applying solution.patch — see WORKSHOP.md")
  class ComplianceFanoutTest {
  
      @Test
