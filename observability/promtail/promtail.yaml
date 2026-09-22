@@ -24,17 +24,25 @@ scrape_configs:
         regex: workshop-ready
         action: drop
     pipeline_stages:
+      # Parse JSON emitted by logstash-logback-encoder
       - json:
           expressions:
             level: level
             message: message
             trace_id: trace_id
-            span_id: span_id
             service_name: service_name
+      # Promote only low-cardinality fields as Loki labels.
+      # trace_id is included so Grafana trace-to-logs correlation works.
+      # span_id stays in the log body — use |= "span_id" to search it.
+      # High-cardinality span_id as a label would create thousands of streams.
       - labels:
           level:
           trace_id:
-          span_id:
           service_name:
+      # Replace the raw JSON line with just the human-readable message.
+      # Non-JSON lines (framework startup logs) produce an empty message
+      # and are dropped here — keeps Loki clean.
+      - drop:
+          expression: "^$"
       - output:
           source: message
