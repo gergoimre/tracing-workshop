@@ -1,8 +1,7 @@
 package com.workshop.transfer
 
-import com.workshop.common.PricingResponse
+import io.micrometer.observation.annotation.Observed
 import io.opentelemetry.api.trace.Span
-import io.opentelemetry.instrumentation.annotations.WithSpan
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -23,13 +22,14 @@ class BackgroundJobService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Async("backgroundJobExecutor")
-    @WithSpan("transfer.settle.async")
+    @Observed(name = "transfer.settle.async")
     fun settle(transferId: String, sourceCurrency: String, amount: Long, provider: String) {
         Thread.sleep(settleDelayMs)
 
         Span.current().apply {
             setAttribute("job.type", "settle")
             setAttribute("job.transfer_id", transferId)
+            setAttribute("job.async", true)
         }
 
         log.info("Background settle started: transferId={}", transferId)
@@ -53,7 +53,7 @@ class BackgroundJobService(
     }
 
     @Async("backgroundJobExecutor")
-    @WithSpan("transfer.reconcile.async")
+    @Observed(name = "transfer.reconcile.async")
     fun reconcile(transferId: String, sourceCurrency: String, targetCurrency: String) {
         Thread.sleep(reconcileDelayMs)
 
@@ -62,6 +62,7 @@ class BackgroundJobService(
             setAttribute("job.transfer_id", transferId)
             setAttribute("job.source_currency", sourceCurrency)
             setAttribute("job.target_currency", targetCurrency)
+            setAttribute("job.async", true)
         }
 
         log.info("Background reconcile started: transferId={}", transferId)
@@ -77,7 +78,7 @@ class BackgroundJobService(
     }
 
     @Async("backgroundJobExecutor")
-    @WithSpan("transfer.receipt.async")
+    @Observed(name = "transfer.receipt.async")
     fun sendReceipt(transferId: String, customerId: String) {
         Thread.sleep(receiptDelayMs)
 
@@ -85,6 +86,7 @@ class BackgroundJobService(
             setAttribute("job.type", "receipt")
             setAttribute("job.transfer_id", transferId)
             setAttribute("job.customer_id", customerId)
+            setAttribute("job.async", true)
         }
 
         log.info("Background receipt started: transferId={} customerId={}", transferId, customerId)

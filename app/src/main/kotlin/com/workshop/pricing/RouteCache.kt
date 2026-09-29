@@ -12,7 +12,7 @@ class RouteCache {
         val sourceCurrency: String,
         val targetCurrency: String,
         val transferType: String,
-        val amountBucket: String
+        val amount: Long
     )
 
     private val store = ConcurrentHashMap<CacheKey, List<com.workshop.common.RouteCandidate>>()
@@ -21,17 +21,17 @@ class RouteCache {
         sourceCurrency: String,
         targetCurrency: String,
         transferType: String,
-        amountBucket: String
+        amount: Long
     ): List<com.workshop.common.RouteCandidate>? =
-        store[CacheKey(sourceCurrency, targetCurrency, transferType, amountBucket)]
+        store[CacheKey(sourceCurrency, targetCurrency, transferType, amount)]
 
     fun put(
         sourceCurrency: String,
         targetCurrency: String,
         transferType: String,
-        amountBucket: String,
+        amount: Long,
         candidates: List<com.workshop.common.RouteCandidate>
     ) {
-        store[CacheKey(sourceCurrency, targetCurrency, transferType, amountBucket)] = candidates
+        store[CacheKey(sourceCurrency, targetCurrency, transferType, amount)] = candidates
     }
 }

@@ -32,7 +32,7 @@ class PricingConcurrencyTest {
 
         val routingClient = mockk<RoutingClient>()
         every {
-            routingClient.getCandidates("EUR", "BRL", "BANK_TRANSFER", "10000_PLUS")
+            routingClient.getCandidates("EUR", "BRL", "BANK_TRANSFER", 15000L)
         } returns RoutingCandidatesResponse(candidates)
 
         val ledgerClient = mockk<LedgerClient>()
@@ -42,8 +42,8 @@ class PricingConcurrencyTest {
         val controller = PricingController(fxClient, routingClient, RouteCache(), ledgerClient)
 
         val elapsed = measureTime {
-            controller.calculatePricing(
-                com.workshop.common.PricingRequest("EUR", "BRL", "BANK_TRANSFER", "10000_PLUS"),
+            controller.calculate(
+                com.workshop.common.PricingRequest("EUR", "BRL", "BANK_TRANSFER", 15000L),
                 "test-request-id"
             )
         }

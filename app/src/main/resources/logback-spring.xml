@@ -1,10 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!--
+        Spring Boot's Micrometer Tracing populates traceId and spanId into MDC
+        automatically — no agent required. The keys are "traceId" and "spanId"
+        (camelCase) by default. We remap them to snake_case so promtail's JSON
+        pipeline stage and Loki label names stay consistent.
+    -->
     <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <includeMdcKeyName>trace_id</includeMdcKeyName>
-            <includeMdcKeyName>span_id</includeMdcKeyName>
-            <includeMdcKeyName>trace_flags</includeMdcKeyName>
+            <!-- Micrometer Tracing writes camelCase keys; alias to snake_case for Loki -->
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>spanId</includeMdcKeyName>
+            <mdcKeyFieldName>traceId=trace_id</mdcKeyFieldName>
+            <mdcKeyFieldName>spanId=span_id</mdcKeyFieldName>
             <customFields>{"service_name":"${OTEL_SERVICE_NAME:-workshop}"}</customFields>
             <fieldNames>
                 <timestamp>timestamp</timestamp>
@@ -21,6 +29,7 @@
     <logger name="io.netty" level="WARN"/>
     <logger name="reactor" level="WARN"/>
     <logger name="io.opentelemetry" level="WARN"/>
+    <logger name="io.micrometer" level="WARN"/>
 
     <root level="WARN">
         <appender-ref ref="JSON_CONSOLE"/>

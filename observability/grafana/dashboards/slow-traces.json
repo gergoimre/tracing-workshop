@@ -1,6 +1,8 @@
 {
-  "annotations": { "list": [] },
-  "description": "Workshop starting point — traces and logs side by side",
+  "annotations": {
+    "list": []
+  },
+  "description": "Workshop starting point \u2014 traces and logs side by side",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -8,10 +10,15 @@
   "links": [],
   "panels": [
     {
-      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "options": {
-        "content": "## Workshop — Trace Explorer\nUse the links below to investigate. Open a trace waterfall to find the bugs. Compare what logs tell you vs what traces show.",
+        "content": "## Workshop \u2014 Trace Explorer\n\nUse the panels below to investigate. Open a trace waterfall to find the bugs. The root span name is **`http post /transfers/prepare`** (auto-named by Micrometer). Use `duration > Xs` to filter by the span's own duration.",
         "mode": "markdown"
       },
       "title": "",
@@ -19,47 +26,93 @@
       "type": "text"
     },
     {
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 2 },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 3
+      },
       "id": 2,
       "options": {
-        "content": "### All transfer traces\n\nSort by **Duration** to spot outliers.\n\n**[Open in Explore →](/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22POST%20%2Ftransfers%2Fprepare%5C%22%20%7D%22%2C%22limit%22%3A50%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D)**",
+        "content": "### 1 \u2014 All transfer requests\n\nSort by **Duration** to spot outliers.\n\n---\n\n**[Open in Explore \u2192](/explore?orgId=1&left=%7B%22datasource%22%3A%22tempo-workshop%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22http%20post%20/transfers/prepare%5C%22%20%7D%22%2C%22limit%22%3A50%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D)**",
         "mode": "markdown"
       },
-      "title": "1 — Start here",
+      "title": "",
       "type": "text"
     },
     {
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 2 },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 3
+      },
       "id": 3,
       "options": {
-        "content": "### Slow traces  (> 2 s)\n\nTraces that exceeded the latency threshold.\n\n**[Open in Explore →](/explore?orgId=1&left=%7B%22datasource%22%3A%22P214B5B846CF3925F%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22POST%20%2Ftransfers%2Fprepare%5C%22%20%26%26%20duration%20%3E%202s%20%7D%22%2C%22limit%22%3A20%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D)**",
+        "content": "### 2 \u2014 Slow requests (> 2s)\n\nFilters on the HTTP request span duration. Use this to find the bug.\n\n---\n\n**[Open in Explore \u2192](/explore?orgId=1&left=%7B%22datasource%22%3A%22tempo-workshop%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20name%20%3D%20%5C%22http%20post%20/transfers/prepare%5C%22%20%26%26%20duration%20%3E%202s%20%7D%22%2C%22limit%22%3A20%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D)**",
         "mode": "markdown"
       },
-      "title": "2 — Find the slow trace",
+      "title": "",
       "type": "text"
     },
     {
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 2 },
-      "id": 6,
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 3
+      },
+      "id": 7,
       "options": {
-        "content": "### TraceQL reference\n```\n{ resource.service.name = \"transfer-service\"\n  && name = \"POST /transfers/prepare\" }\n```\n```\n{ ... && duration > 2s }\n```\nPaste into **Explore → Tempo → TraceQL tab**",
+        "content": "### 3 \u2014 Async background jobs\n\nBackground jobs (settle / reconcile / receipt) run after the response returns. Tagged `job.async = true`.\n\n---\n\n**[Open in Explore \u2192](/explore?orgId=1&left=%7B%22datasource%22%3A%22tempo-workshop%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7B%20resource.service.name%20%3D%20%5C%22transfer-service%5C%22%20%26%26%20span.job.async%20%3D%20true%20%7D%22%2C%22limit%22%3A20%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-15m%22%2C%22to%22%3A%22now%22%7D%7D)**",
         "mode": "markdown"
       },
-      "title": "TraceQL",
+      "title": "",
+      "type": "text"
+    },
+    {
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 3
+      },
+      "id": 6,
+      "options": {
+        "content": "### TraceQL reference\n\n```\n{ resource.service.name = \"transfer-service\"\n  && name = \"http post /transfers/prepare\"\n  && duration > 2s }\n```\n\n```\n{ resource.service.name = \"risk-service\"\n  && span.risk.screening_terms_checked > 0 }\n```",
+        "mode": "markdown"
+      },
+      "title": "",
       "type": "text"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
       "id": 10,
-      "title": "Logs — transfer-service",
+      "title": "Logs \u2014 transfer-service",
       "type": "row"
     },
     {
-      "datasource": { "type": "loki", "uid": "loki-workshop" },
-      "description": "Structured logs from the transfer service. Notice: every log line looks healthy — no errors, no warnings. The bugs are invisible here.",
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 7 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-workshop"
+      },
+      "description": "Structured logs from the transfer service. Notice: every log line looks healthy \u2014 no errors, no warnings. The bugs are invisible here.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
       "id": 4,
       "options": {
         "dedupStrategy": "none",
@@ -73,27 +126,46 @@
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki-workshop" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-workshop"
+          },
           "expr": "{service_name=\"transfer-service\"}",
           "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "Transfer service logs — looks healthy despite the bugs",
+      "title": "Transfer service logs \u2014 looks healthy despite the bugs",
       "type": "logs"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
       "id": 11,
-      "title": "Logs — pricing-service",
+      "title": "Logs \u2014 pricing-service",
       "type": "row"
     },
     {
-      "datasource": { "type": "loki", "uid": "loki-workshop" },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-workshop"
+      },
       "description": "Pricing service logs. The sequential FX calls produce three normal-looking log lines. No timing info, no indication of sequential vs concurrent.",
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
       "id": 5,
       "options": {
         "dedupStrategy": "none",
@@ -107,23 +179,32 @@
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki-workshop" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-workshop"
+          },
           "expr": "{service_name=\"pricing-service\"}",
           "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "Pricing service logs — sequential or concurrent? Impossible to tell.",
+      "title": "Pricing service logs \u2014 sequential or concurrent? Impossible to tell.",
       "type": "logs"
     }
   ],
   "refresh": "15s",
   "schemaVersion": 39,
-  "tags": ["workshop", "tracing"],
-  "time": { "from": "now-30m", "to": "now" },
+  "tags": [
+    "workshop",
+    "tracing"
+  ],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Workshop — Trace Explorer",
+  "title": "Workshop \u2014 Trace Explorer",
   "uid": "workshop-traces",
   "version": 1
 }

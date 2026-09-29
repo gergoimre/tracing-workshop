@@ -2,8 +2,8 @@ package com.workshop.pricing
 
 import com.workshop.common.PricingRequest
 import com.workshop.common.PricingResponse
+import io.micrometer.observation.annotation.Observed
 import io.opentelemetry.api.trace.Span
-import io.opentelemetry.instrumentation.annotations.WithSpan
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
@@ -25,28 +25,26 @@ class PricingController(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @PostMapping("/calculate")
+    @Observed(name = "pricing.calculate")
     fun calculate(
         @RequestBody request: PricingRequest,
         @RequestHeader("X-Request-ID", defaultValue = "") requestId: String
-    ): PricingResponse = calculatePricing(request, requestId)
-
-    @WithSpan("pricing.calculate")
-    fun calculatePricing(request: PricingRequest, requestId: String): PricingResponse {
+    ): PricingResponse {
         val strategy = StrategyRules.resolve(
             request.sourceCurrency, request.targetCurrency,
-            request.transferType, request.amountBucket
+            request.transferType, request.amount
         )
 
         val candidates = routeCache.get(
             request.sourceCurrency, request.targetCurrency,
-            request.transferType, request.amountBucket
+            request.transferType, request.amount
         ) ?: routingClient.getCandidates(
             request.sourceCurrency, request.targetCurrency,
-            request.transferType, request.amountBucket
+            request.transferType, request.amount
         ).candidates.also { fetched ->
             routeCache.put(
                 request.sourceCurrency, request.targetCurrency,
-                request.transferType, request.amountBucket,
+                request.transferType, request.amount,
                 fetched
             )
         }
@@ -54,6 +52,7 @@ class PricingController(
         Span.current().apply {
             setAttribute("pricing.strategy", strategy.name)
             setAttribute("pricing.route_candidate_count", candidates.size.toLong())
+            setAttribute("pricing.amount", request.amount)
         }
 
         log.info("Calculating pricing: strategy={} candidates={}", strategy.name, candidates.size)
@@ -63,6 +62,8 @@ class PricingController(
         }
 
         val best = rates.minByOrNull { it.rate }!!
+
+        Span.current().setAttribute("pricing.best_rate", best.rate)
 
         val transferId = "txn-pending-${UUID.randomUUID().toString().take(8)}"
         ledgerClient.reserve(

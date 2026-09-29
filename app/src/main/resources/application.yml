@@ -1,6 +1,6 @@
 spring:
   application:
-    name: ${APP_ROLE:workshop-app}
+    name: ${OTEL_SERVICE_NAME:${APP_ROLE:workshop-app}}
   threads:
     virtual:
       enabled: true
@@ -16,6 +16,12 @@ management:
   endpoint:
     health:
       show-details: never
+  tracing:
+    sampling:
+      probability: 1.0   # always_on — trace every request
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}/v1/traces
 
 workshop:
   pricing-url: ${PRICING_URL:http://localhost:8081}

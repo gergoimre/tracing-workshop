@@ -48,13 +48,13 @@ class SupportController {
         @RequestParam sourceCurrency: String,
         @RequestParam targetCurrency: String,
         @RequestParam transferType: String,
-        @RequestParam amountBucket: String
+        @RequestParam amount: Long
     ): RoutingCandidatesResponse {
         val candidates = if (
             sourceCurrency == "EUR" &&
             targetCurrency == "BRL" &&
             transferType == "BANK_TRANSFER" &&
-            amountBucket == "10000_PLUS"
+            amount >= 10_000
         ) {
             listOf(
                 RouteCandidate("route-1", "LOCAL_PAYOUT", "provider-a"),

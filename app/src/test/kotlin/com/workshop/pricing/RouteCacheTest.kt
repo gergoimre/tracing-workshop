@@ -17,7 +17,7 @@ class RouteCacheTest {
 
         val routingClient = mockk<RoutingClient>()
         every {
-            routingClient.getCandidates("EUR", "USD", "BANK_TRANSFER", "BELOW_10000")
+            routingClient.getCandidates("EUR", "USD", "BANK_TRANSFER", 5000L)
         } returns RoutingCandidatesResponse(listOf(candidate))
 
         val fxClient = mockk<FxClient>()
@@ -30,10 +30,10 @@ class RouteCacheTest {
 
         val cache = RouteCache()
         val controller = PricingController(fxClient, routingClient, cache, ledgerClient)
-        val request = com.workshop.common.PricingRequest("EUR", "USD", "BANK_TRANSFER", "BELOW_10000")
+        val request = com.workshop.common.PricingRequest("EUR", "USD", "BANK_TRANSFER", 5000L)
 
-        controller.calculatePricing(request, "request-A")
-        controller.calculatePricing(request, "request-B")
+        controller.calculate(request, "request-A")
+        controller.calculate(request, "request-B")
 
         verify(exactly = 1) { routingClient.getCandidates(any(), any(), any(), any()) }
     }

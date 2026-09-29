@@ -2,8 +2,8 @@ package com.workshop.notification
 
 import com.workshop.common.NotificationRequest
 import com.workshop.common.NotificationResponse
+import io.micrometer.observation.annotation.Observed
 import io.opentelemetry.api.trace.Span
-import io.opentelemetry.instrumentation.annotations.WithSpan
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
@@ -20,10 +20,8 @@ class NotificationController(private val auditClient: AuditClient) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @PostMapping("/send")
-    fun send(@RequestBody request: NotificationRequest): NotificationResponse = sendNotification(request)
-
-    @WithSpan("notification.send")
-    fun sendNotification(request: NotificationRequest): NotificationResponse {
+    @Observed(name = "notification.send")
+    fun send(@RequestBody request: NotificationRequest): NotificationResponse {
         Thread.sleep(20)
 
         val notificationId = "notif-${UUID.randomUUID().toString().take(8)}"

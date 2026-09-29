@@ -27,7 +27,7 @@ colima start --cpu 4 --memory 8 --disk 40
 ```bash
 git clone <repository-url>
 cd tracing-workshop
-docker compose up --build
+./start.sh
 ```
 
 Once all health checks pass, you will see:
@@ -52,6 +52,10 @@ Once all health checks pass, you will see:
 ```bash
 ./scripts/generate-traffic.sh
 ```
+
+## Tracing stack
+
+Tracing uses **Spring Boot's native Micrometer Tracing** (`micrometer-tracing-bridge-otel`) — no Java agent. The OTel SDK is managed by Spring auto-config; spans are exported via OTLP to the collector, stored in Tempo, and visualised in Grafana.
 
 ## Services
 
@@ -100,4 +104,4 @@ Wait ~30 s after the first request. The OTel Collector batches before forwarding
 Check `docker compose logs otel-collector` for errors.
 
 **Build fails**
-Make sure Colima is running before `docker compose up --build`.
+Make sure Colima is running before `./start.sh`.

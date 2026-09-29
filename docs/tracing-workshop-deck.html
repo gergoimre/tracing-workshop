@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distributed Tracing Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ─── reset ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ─── tokens — Light theme ─── */
+:root{
+  --bg:#FFFFFF;--bg2:#F0F2EE;--bg3:#E4E7E0;--bg4:#D8DCD2;
+  /* --g is ONLY used as a background accent colour (chips, bars, SVG fills).
+     Never use --g as text on white — use --forest or --green-text instead. */
+  --g:#9FE870;
+  --green-text:#1a5c00; /* replaces --g for text on white — 7:1 contrast */
+  --forest:#163300;
+  --o:#a84e00;   /* was #c45e00 — boosted to 4.8:1 on white */
+  --b:#0a6464;   /* was #0d7a7a — boosted to 4.9:1 on white */
+  --y:#6b5500;   /* was #8a6f00 — boosted to 5.2:1 on white */
+  --pk:#a0005a;  /* was #c2006e — boosted to 5.1:1 on white */
+  --red:#b02a1f; /* was #c0392b — boosted to 5.5:1 on white */
+  --w:#163300;--off:#1a1d17;
+  --mu:#4a4d47;  /* was #6b6f67 — boosted from 4.5:1 to 7.2:1 on white */
+  --bdr:rgba(22,51,0,.12);
+  --font:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+  --mono:'IBM Plex Mono','Menlo','Consolas',monospace;
+  --ease:cubic-bezier(.2,0,0,1);--fluid:cubic-bezier(.4,0,.2,1);
+  --r:14px;
+  /* service colours — WCAG AA on white (all ≥ 4.5:1) */
+  --ct:#1a5c00; /* Transfer  green  7.2:1 */
+  --cp:#0a6464; /* Pricing   teal   4.9:1 */
+  --cf:#a84e00; /* FX        orange 4.8:1 */
+  --cr:#6b5500; /* Risk      yellow 5.2:1 */
+  --cs:#8c0063; /* Screening pink   5.3:1 */
+}
+
+/* ─── no scrollbars anywhere ─── */
+html,body{width:100%;height:100%;overflow:hidden;font-family:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#FFFFFF;color:#1a1d17}
+.deck{
+  width:100vw;height:100vh;
+  overflow-y:scroll;overflow-x:hidden;
+  scroll-snap-type:y mandatory;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.deck::-webkit-scrollbar{display:none}
+
+/* ─── slide base ─── */
+.slide{
+  width:100vw;height:100vh;
+  scroll-snap-align:start;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:clamp(22px,3vh,48px) clamp(36px,5vw,88px);
+  position:relative;overflow:hidden;
+  background:var(--bg);
+  flex-shrink:0;
+}
+
+/* ─── variants ─── */
+.s-title{align-items:center;text-align:center}
+.s-center{align-items:center;text-align:center;justify-content:center}
+.s-sec{background:var(--forest);color:#fff;justify-content:flex-start;align-items:flex-start}
+.s-sec h2{text-transform:uppercase;font-weight:800;letter-spacing:.01em;color:#9FE870}
+.s-sec .eyebrow{color:rgba(159,232,112,.6)}
+.s-sec .snum{color:rgba(159,232,112,.18);opacity:1}
+.s-dark{background:var(--bg2)}
+.s-reveal{background:#f0fae8;border-left:4px solid #2d7a00}
+.s-reveal h2,.s-reveal h3{color:var(--forest)}
+.s-reveal .wf-l{color:var(--forest)}
+
+/* ─── type ─── */
+.slide h1{font-size:clamp(36px,4.5vw,80px);font-weight:700;line-height:1.05;letter-spacing:-.03em;margin-bottom:12px;color:var(--forest)}
+.slide h2{font-size:clamp(24px,2.8vw,50px);font-weight:600;line-height:1.1;letter-spacing:-.02em;margin-bottom:14px;color:var(--forest)}
+.slide h3{font-size:clamp(17px,1.7vw,24px);font-weight:600;margin-bottom:8px;color:var(--forest)}
+.slide p{font-size:clamp(13px,1.1vw,17px);line-height:1.6;color:var(--off);max-width:66ch}
+.eyebrow{font-size:clamp(10px,.8vw,12px);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mu);margin-bottom:6px}
+.big{font-size:clamp(42px,5vw,88px);font-weight:700;letter-spacing:-.04em;line-height:1;color:var(--forest)}
+.label{font-size:clamp(10px,.8vw,12px);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mu)}
+/* force white text inside dark section slides */
+.s-sec h1,.s-sec h2,.s-sec h3,.s-sec p{color:inherit}
+.s-sec .pbanner{color:rgba(159,232,112,.5);border-color:rgba(159,232,112,.2)}
+
+.g{color:var(--green-text)}.o{color:var(--o)}.b{color:var(--b)}.y{color:var(--y)}.pk{color:var(--pk)}.mu{color:var(--mu)}.rd{color:var(--red)}
+
+/* ─── part banner ─── */
+.pbanner{
+  position:absolute;top:clamp(16px,2vh,28px);right:clamp(36px,5vw,88px);
+  font-size:clamp(11px,.88vw,13px);font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--mu);border:1px solid var(--bdr);border-radius:999px;padding:3px 11px;
+}
+.s-reveal .pbanner{color:var(--forest);border-color:rgba(22,51,0,.25)}
+
+/* section ghost */
+.snum{position:absolute;bottom:clamp(12px,2vh,28px);left:clamp(36px,5vw,88px);font-size:clamp(42px,5vw,72px);font-weight:700;color:var(--g);opacity:.3;pointer-events:none;line-height:1}
+
+/* ─── layout ─── */
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,1.8vw,28px);align-items:start}
+.cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:clamp(10px,1.3vw,20px);align-items:start}
+.split{display:grid;grid-template-columns:1fr 1.1fr;gap:clamp(16px,2.5vw,40px);align-items:center}
+.split-rev{display:grid;grid-template-columns:1.1fr 1fr;gap:clamp(16px,2.5vw,40px);align-items:center}
+
+/* ─── card ─── */
+.card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:clamp(12px,1.5vw,22px)}
+
+/* ─── chip ─── */
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:clamp(12px,.95vw,14px);font-weight:600}
+.chip-t{background:rgba(45,122,0,.1);color:var(--ct);border:1px solid rgba(45,122,0,.25)}
+.chip-p{background:rgba(13,122,122,.1);color:var(--cp);border:1px solid rgba(13,122,122,.25)}
+.chip-f{background:rgba(184,80,0,.1);color:var(--cf);border:1px solid rgba(184,80,0,.25)}
+.chip-r{background:rgba(138,111,0,.1);color:var(--cr);border:1px solid rgba(138,111,0,.25)}
+.chip-s{background:rgba(155,0,112,.1);color:var(--cs);border:1px solid rgba(155,0,112,.25)}
+.chip-n{background:rgba(22,51,0,.06);color:var(--mu);border:1px solid var(--bdr)}
+.pill{border-radius:999px;padding:4px 13px;font-size:clamp(12px,.95vw,14px);font-weight:600;display:inline-block}
+.pill-b{background:rgba(13,122,122,.1);color:var(--b);border:1px solid rgba(13,122,122,.25)}
+.pill-y{background:rgba(138,111,0,.1);color:var(--y);border:1px solid rgba(138,111,0,.25)}
+.pill-g{background:rgba(22,51,0,.08);color:var(--forest);border:1px solid rgba(22,51,0,.2)}
+
+/* ─── code ─── */
+.code{
+  background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);
+  padding:clamp(11px,1.3vw,20px) clamp(14px,1.5vw,22px);
+  font-family:var(--mono);font-size:clamp(11px,.92vw,14px);line-height:1.65;
+  overflow:hidden;white-space:pre;max-width:100%;
+  color:var(--forest)
+}
+.code .g{color:#1a5c00}.code .b{color:#0a6464}.code .o{color:#a84e00}
+.code .y{color:#6b5500}.code .pk{color:#8c0063}.code .mu{color:#4a4d47}
+.code .add{background:rgba(45,122,0,.08);border-left:3px solid #2a7a00;margin-left:-20px;padding-left:17px;display:block}
+.code .bad{background:rgba(192,57,43,.07);border-left:3px solid var(--red);margin-left:-20px;padding-left:17px;display:block}
+
+/* ─── waterfall ─── */
+.wf{display:flex;flex-direction:column;gap:6px;width:100%}
+.wf-r{display:flex;align-items:center;gap:10px}
+.wf-l{font-size:clamp(10px,.85vw,13px);font-weight:500;width:clamp(120px,14vw,190px);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);color:var(--forest)}
+.wf-t{flex:1;height:20px;position:relative;border-radius:3px;background:rgba(22,51,0,.06)}
+.wf-b{position:absolute;top:2px;height:16px;border-radius:2px;display:flex;align-items:center;padding:0 6px;font-size:clamp(10px,.8vw,12px);font-weight:700;color:rgba(0,0,0,.75)}
+.wf-d{font-size:clamp(10px,.8vw,12px);color:var(--mu);width:50px;text-align:right;flex-shrink:0;font-family:var(--mono)}
+
+/* ─── attr row ─── */
+.attr{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)}
+.attr-k{font-family:var(--mono);font-size:clamp(11px,.92vw,13.5px);color:var(--b)}
+.attr-v{font-family:var(--mono);font-size:clamp(11px,.92vw,13.5px);color:var(--o)}
+.attr-n{font-size:clamp(10px,.78vw,12px);color:var(--mu);margin-left:auto}
+/* attr rows inside dark section slides */
+.s-sec .attr-k{color:#9FE870}.s-sec .attr-v{color:#FFC091}.s-sec .attr{border-bottom-color:rgba(255,255,255,.15)}
+
+/* ─── table ─── */
+.tbl{width:100%;border-collapse:collapse;font-size:clamp(11px,.92vw,14px)}
+.tbl th{background:var(--bg3);color:var(--mu);font-weight:700;text-align:left;padding:6px 11px;border-bottom:1px solid var(--bdr);letter-spacing:.06em;text-transform:uppercase;font-size:clamp(9px,.75vw,11px)}
+.tbl td{padding:6px 11px;border-bottom:1px solid var(--bdr);color:var(--off);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td:first-child{font-family:var(--mono);color:var(--b)}
+
+/* ─── log line ─── */
+.log{font-family:var(--mono);font-size:clamp(11px,.88vw,13px);line-height:1.6;color:var(--off);background:var(--bg2);padding:2px 7px;border-radius:3px}
+
+/* ─── progress + counter ─── */
+.progress{position:fixed;bottom:0;left:0;height:3px;background:var(--forest);z-index:100;transition:width .18s var(--ease);pointer-events:none}
+.counter{position:fixed;bottom:10px;right:16px;font-size:clamp(11px,.88vw,13px);color:var(--mu);z-index:100;font-family:var(--mono)}
+
+/* ─── animated request token ─── */
+.token{
+  width:28px;height:28px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:clamp(10px,.8vw,12px);font-weight:800;color:#000;
+  box-shadow:0 0 10px currentColor;
+}
+
+/* ─── entrance ─── */
+@media(prefers-reduced-motion:no-preference){
+  .slide>*{opacity:0;transform:translateY(14px);transition:opacity 180ms var(--ease),transform 180ms var(--ease)}
+  .slide.visible>*{opacity:1;transform:translateY(0)}
+  .slide.visible>*:nth-child(1){transition-delay:0ms}
+  .slide.visible>*:nth-child(2){transition-delay:50ms}
+  .slide.visible>*:nth-child(3){transition-delay:100ms}
+  .slide.visible>*:nth-child(4){transition-delay:150ms}
+  .slide.visible>*:nth-child(5){transition-delay:200ms}
+  .slide.visible>*:nth-child(6){transition-delay:250ms}
+  .slide.visible>*:nth-child(7){transition-delay:300ms}
+  .slide.visible>*:nth-child(8){transition-delay:350ms}
+  /* animated wf bars */
+  .slide.visible .wf-b{animation:barslide .5s var(--fluid) both}
+  @keyframes barslide{from{opacity:0;transform:scaleX(.3);transform-origin:left}to{opacity:1;transform:scaleX(1)}}
+  /* staggered wf rows */
+  .slide.visible .wf-r:nth-child(1) .wf-b{animation-delay:.15s}
+  .slide.visible .wf-r:nth-child(2) .wf-b{animation-delay:.22s}
+  .slide.visible .wf-r:nth-child(3) .wf-b{animation-delay:.29s}
+  .slide.visible .wf-r:nth-child(4) .wf-b{animation-delay:.36s}
+  .slide.visible .wf-r:nth-child(5) .wf-b{animation-delay:.43s}
+  .slide.visible .wf-r:nth-child(6) .wf-b{animation-delay:.50s}
+  .slide.visible .wf-r:nth-child(7) .wf-b{animation-delay:.57s}
+  .slide.visible .wf-r:nth-child(8) .wf-b{animation-delay:.64s}
+  /* token pulse */
+  .token-pulse{animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 8px currentColor}50%{box-shadow:0 0 20px currentColor,0 0 40px currentColor}}
+  /* flow animation on arch arrows */
+  .flow-arrow{stroke-dasharray:6 4;animation:flowdash 1.2s linear infinite}
+  @keyframes flowdash{to{stroke-dashoffset:-20}}
+  /* code line reveal */
+  .slide.visible .reveal-line{animation:linefade .3s var(--ease) both}
+  @keyframes linefade{from{opacity:0;background:rgba(45,122,0,.15)}to{opacity:1}}
+  .slide.visible .reveal-line:nth-child(1){animation-delay:.2s}
+  .slide.visible .reveal-line:nth-child(2){animation-delay:.35s}
+  .slide.visible .reveal-line:nth-child(3){animation-delay:.5s}
+  .slide.visible .reveal-line:nth-child(4){animation-delay:.65s}
+  .slide.visible .reveal-line:nth-child(5){animation-delay:.8s}
+  /* card pop */
+  .slide.visible .card{animation:cardpop .35s var(--fluid) both}
+  .slide.visible .card:nth-child(1){animation-delay:.1s}
+  .slide.visible .card:nth-child(2){animation-delay:.18s}
+  .slide.visible .card:nth-child(3){animation-delay:.26s}
+  .slide.visible .card:nth-child(4){animation-delay:.34s}
+  @keyframes cardpop{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ══════════════════════════════════════════════
+  TITLE
+══════════════════════════════════════════════ -->
+<!-- 1 -->
+<section class="slide s-title">
+  <div class="eyebrow">Wise Engineering · Workshop</div>
+  <h1>Distributed<br><span class="g">Tracing</span></h1>
+  <p style="margin-top:10px;color:var(--mu);max-width:38ch;margin-left:auto;margin-right:auto">Follow one request through a distributed system. Find what logs can't tell you.</p>
+  <!-- animated arch SVG in background -->
+  <svg style="position:absolute;bottom:0;left:0;width:100%;height:45%;opacity:.05;pointer-events:none" viewBox="0 0 900 200" preserveAspectRatio="xMidYMid slice">
+    <rect x="40"  y="60" width="120" height="40" rx="8" fill="#9FE870"/>
+    <rect x="250" y="60" width="120" height="40" rx="8" fill="#0a6464"/>
+    <rect x="460" y="60" width="120" height="40" rx="8" fill="#a84e00"/>
+    <rect x="670" y="60" width="120" height="40" rx="8" fill="#6b5500"/>
+    <line x1="160" y1="80" x2="250" y2="80" stroke="#1a5c00" stroke-width="2"/>
+    <line x1="370" y1="80" x2="460" y2="80" stroke="#0a6464" stroke-width="2"/>
+    <line x1="580" y1="80" x2="670" y2="80" stroke="#a84e00" stroke-width="2"/>
+    <text x="100"  y="115" fill="#1a5c00" font-size="10" text-anchor="middle" font-family="Menlo">transfer</text>
+    <text x="310"  y="115" fill="#0a6464" font-size="10" text-anchor="middle" font-family="Menlo">pricing</text>
+    <text x="520"  y="115" fill="#a84e00" font-size="10" text-anchor="middle" font-family="Menlo">fx</text>
+    <text x="730"  y="115" fill="#6b5500" font-size="10" text-anchor="middle" font-family="Menlo">risk</text>
+    <rect x="40" y="140" width="760" height="6" rx="2" fill="#9FE870" opacity=".4"/>
+    <rect x="250" y="140" width="540" height="6" rx="2" fill="#0a6464" opacity=".5"/>
+    <rect x="460" y="140" width="200" height="6" rx="2" fill="#a84e00" opacity=".7"/>
+  </svg>
+</section>
+
+<!-- ══════════════════════════════════════════════
+  PART 1 — FUNDAMENTALS
+══════════════════════════════════════════════ -->
+<!-- 2 -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">Fundamentals</div>
+  <h2>What is<br>distributed tracing?</h2>
+  <div class="snum">01</div>
+</section>
+
+<!-- 3 — the problem with logs across services -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="split" style="align-items:start;gap:clamp(20px,3vw,48px)">
+    <div>
+      <div class="eyebrow">The problem</div>
+      <h2>Logs from four services<br>tell you <span style="color:var(--red)">nothing</span> about one request.</h2>
+      <p style="margin-top:8px">A request touches many services. Each logs separately. When something is slow, you manually correlate timestamps across multiple streams — if you can find the right lines at all.</p>
+      <p style="margin-top:8px;color:var(--mu)">At scale, timing and concurrency problems are effectively invisible in logs.</p>
+    </div>
+    <!-- realistic noisy log stream — many services, many requests interleaved -->
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div style="font-size:clamp(10px,.8vw,12px);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mu);margin-bottom:5px;display:flex;gap:16px"><span>timestamp</span><span style="margin-left:4px">service</span><span style="margin-left:28px">message</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:10.991 </span><span style="color:var(--b);font-weight:600">api      </span> <span style="color:var(--mu)">GET /health 200 2ms thread=http-4</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.004 </span><span style="color:var(--b);font-weight:600">api      </span> POST /orders user=u-441 req=r-8812 thread=http-7</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.009 </span><span style="color:var(--o);font-weight:600">catalog  </span> <span style="color:var(--mu)">cache miss sku=SKU-19 fetching from db</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.012 </span><span style="color:var(--ct);font-weight:600">orders   </span> validating order id=ord-5591 user=u-882</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.017 </span><span style="color:var(--green-text);font-weight:600">auth     </span> token ok user=u-441 scope=write exp=3600s</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.021 </span><span style="color:var(--y);font-weight:600">inventory</span> <span style="color:var(--mu)">health check ok replicas=3</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.029 </span><span style="color:var(--o);font-weight:600">catalog  </span> sku=SKU-44 found price=49.99 currency=EUR</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.033 </span><span style="color:var(--ct);font-weight:600">orders   </span> <span style="color:var(--mu)">ord-5591 status=CONFIRMED 200</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.038 </span><span style="color:var(--b);font-weight:600">api      </span> POST /orders user=u-119 req=r-8813 thread=http-2</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.041 </span><span style="color:var(--y);font-weight:600">inventory</span> warehouse=EU sku=SKU-44 qty=12 reserved=false</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.044 </span><span style="color:var(--green-text);font-weight:600">auth     </span> <span style="color:var(--mu)">token ok user=u-119 scope=write exp=3600s</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.051 </span><span style="color:var(--o);font-weight:600">catalog  </span> <span style="color:var(--mu)">cache miss sku=SKU-44 fetching from db</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.055 </span><span style="color:var(--y);font-weight:600">inventory</span> warehouse=US sku=SKU-44 qty=0 reserved=false</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.061 </span><span style="color:var(--b);font-weight:600">api      </span> <span style="color:var(--mu)">GET /health 200 1ms thread=http-4</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.068 </span><span style="color:var(--ct);font-weight:600">orders   </span> validating order id=ord-5592 user=u-441</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.071 </span><span style="color:var(--y);font-weight:600">inventory</span> warehouse=APAC sku=SKU-44 qty=7 reserved=false</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.079 </span><span style="color:var(--o);font-weight:600">catalog  </span> sku=SKU-44 price=49.99 currency=EUR</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.083 </span><span style="color:var(--green-text);font-weight:600">auth     </span> <span style="color:var(--mu)">token refresh user=u-002 new_exp=7200s</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.091 </span><span style="color:var(--ct);font-weight:600">orders   </span> <span style="color:var(--mu)">reserve attempt sku=SKU-44 qty=1 warehouse=APAC</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.096 </span><span style="color:var(--y);font-weight:600">inventory</span> <span style="color:red;font-weight:600">WARN</span> warehouse=EU sku=SKU-44 stock_low threshold=5</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.103 </span><span style="color:var(--b);font-weight:600">api      </span> POST /orders user=u-882 req=r-8814 thread=http-9</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.109 </span><span style="color:var(--ct);font-weight:600">orders   </span> ord-5592 reserved=true warehouse=APAC qty=1</div>
+      <div class="log"><span style="color:var(--mu)">14:02:11.820 </span><span style="color:var(--y);font-weight:600">inventory</span> <span style="color:var(--mu)">warehouse=APAC sku=SKU-44 qty=6 reserved=true</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:12.240 </span><span style="color:var(--o);font-weight:600">catalog  </span> <span style="color:var(--mu)">price recalculated sku=SKU-44 discount=0</span></div>
+      <div class="log"><span style="color:var(--mu)">14:02:12.251 </span><span style="color:var(--b);font-weight:600">api      </span> POST /orders 200 1247ms req=r-8812 thread=http-7</div>
+      <div style="margin-top:8px;padding:7px 10px;background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.2);border-radius:6px">
+        <p style="font-size:clamp(12px,.95vw,14px);color:var(--red)">r-8812 took 1247ms. Which of these lines belong to it? Were the three inventory checks for that request — or three different ones? Were they sequential or concurrent? Good luck.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 — what a trace is -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="split">
+    <div>
+      <div class="eyebrow">The answer</div>
+      <h2>A trace assembles the<br>execution structure <span class="g">for you.</span></h2>
+      <p style="margin-top:8px">A <strong style="color:var(--w)">trace</strong> represents a single request as it travels through a distributed system. It is made up of <strong style="color:var(--w)">spans</strong> — units of work, each with a start time, end time, and structured attributes.</p>
+      <p style="margin-top:8px;color:var(--mu)">The execution structure is assembled automatically. You read it, you don't reconstruct it.</p>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <span class="chip chip-n">api</span>
+        <span class="chip chip-n">auth</span>
+        <span class="chip chip-n">catalog</span>
+        <span class="chip chip-n">inventory</span>
+        <span style="font-size:clamp(12px,.95vw,14px);color:var(--mu);padding:3px 0">→ one trace</span>
+      </div>
+    </div>
+    <!-- generic waterfall — same logs from slide 3 but structured -->
+    <div>
+      <div style="font-size:clamp(11px,.88vw,13px);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--mu);margin-bottom:8px">Same execution, as a waterfall</div>
+      <div class="wf">
+        <div class="wf-r"><div class="wf-l" style="color:var(--b)">GET /product/SKU-44</div><div class="wf-t"><div class="wf-b" style="left:0;width:100%;background:rgba(13,90,90,.18);border:1px solid var(--b)"></div></div><div class="wf-d">1247ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--mu);padding-left:12px">auth.validate</div><div class="wf-t"><div class="wf-b" style="left:0;width:3%;background:rgba(255,255,255,.2)"></div></div><div class="wf-d">17ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--o);padding-left:12px">catalog.lookup</div><div class="wf-t"><div class="wf-b" style="left:3%;width:96%;background:rgba(184,80,0,.15);border:1px solid var(--o)"></div></div><div class="wf-d">1202ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--y);padding-left:24px">inventory [EU]</div><div class="wf-t"><div class="wf-b" style="left:4%;width:32%;background:var(--y)"></div></div><div class="wf-d">390ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--y);padding-left:24px">inventory [US]</div><div class="wf-t"><div class="wf-b" style="left:4%;width:32%;background:var(--y)"></div></div><div class="wf-d">385ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--y);padding-left:24px">inventory [APAC]</div><div class="wf-t"><div class="wf-b" style="left:4%;width:32%;background:var(--y)"></div></div><div class="wf-d">400ms</div></div>
+      </div>
+      <div style="margin-top:10px;padding:8px 12px;background:rgba(45,122,0,.06);border:1px solid rgba(45,122,0,.2);border-radius:8px">
+        <p style="font-size:clamp(12px,.95vw,14px);color:var(--green-text)">Three inventory spans overlap — concurrent. catalog.lookup is waiting for all three. No guessing, no timestamp arithmetic.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 — anatomy: span -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="split">
+    <div>
+      <div class="eyebrow">Anatomy of a span</div>
+      <h2>A span is a unit of work<br>with <span class="g">identity, timing,</span> and <span class="g">context.</span></h2>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:0;max-width:46ch">
+        <div class="attr"><span class="attr-k">name</span><span class="attr-v">"catalog.lookup"</span><span class="attr-n">stable op name</span></div>
+        <div class="attr"><span class="attr-k">start / end</span><span class="attr-v">45ms → 1247ms</span><span class="attr-n">wall-clock</span></div>
+        <div class="attr"><span class="attr-k">attributes</span><span class="attr-v">key=value</span><span class="attr-n">business context</span></div>
+        <div class="attr"><span class="attr-k">parent span ID</span><span class="attr-v">links child→parent</span><span class="attr-n">absent on root</span></div>
+        <div class="attr" style="border:none"><span class="attr-k">status</span><span class="attr-v">OK | ERROR</span><span class="attr-n">≠ HTTP status</span></div>
+      </div>
+    </div>
+    <!-- generic span anatomy SVG — neutral example -->
+    <svg viewBox="0 0 380 240" style="width:100%;max-width:380px;height:auto">
+      <!-- root span -->
+      <rect x="10" y="20" width="360" height="32" rx="6" fill="rgba(13,90,90,.12)" stroke="#0a6464" stroke-width="1.5"/>
+      <text x="20" y="41" fill="#0a6464" font-size="11" font-family="Menlo" font-weight="600">GET /product/SKU-44</text>
+      <text x="358" y="41" fill="#0a6464" font-size="10" font-family="Menlo" text-anchor="end">1247ms</text>
+      <!-- child: auth -->
+      <rect x="30" y="66" width="75" height="26" rx="5" fill="rgba(22,51,0,.06)" stroke="rgba(22,51,0,.2)" stroke-width="1"/>
+      <text x="67" y="83" fill="rgba(22,51,0,.55)" font-size="9" font-family="Menlo" text-anchor="middle">auth</text>
+      <!-- child: catalog -->
+      <rect x="115" y="66" width="255" height="26" rx="5" fill="rgba(184,80,0,.12)" stroke="#a84e00" stroke-width="1.5"/>
+      <text x="125" y="83" fill="#a84e00" font-size="9" font-family="Menlo">catalog.lookup</text>
+      <!-- child: inventory spans (concurrent — overlapping) -->
+      <rect x="135" y="106" width="230" height="22" rx="4" fill="rgba(138,111,0,.12)" stroke="#6b5500" stroke-width="1"/>
+      <text x="250" y="121" fill="#6b5500" font-size="8" font-family="Menlo" text-anchor="middle">inventory.check [EU]</text>
+      <rect x="135" y="130" width="230" height="22" rx="4" fill="rgba(138,111,0,.12)" stroke="#6b5500" stroke-width="1"/>
+      <text x="250" y="145" fill="#6b5500" font-size="8" font-family="Menlo" text-anchor="middle">inventory.check [US]</text>
+      <rect x="135" y="154" width="230" height="22" rx="4" fill="rgba(138,111,0,.12)" stroke="#6b5500" stroke-width="1"/>
+      <text x="250" y="169" fill="#6b5500" font-size="8" font-family="Menlo" text-anchor="middle">inventory.check [APAC]</text>
+      <!-- attributes callout -->
+      <rect x="10" y="186" width="360" height="44" rx="8" fill="var(--bg2)" stroke="var(--bdr)" stroke-width="1"/>
+      <text x="22" y="205" fill="#0a6464" font-size="9.5" font-family="Menlo">http.request.method</text>
+      <text x="210" y="205" fill="#a84e00" font-size="9.5" font-family="Menlo">= GET</text>
+      <text x="22" y="221" fill="#0a6464" font-size="9.5" font-family="Menlo">http.response.status_code</text>
+      <text x="250" y="221" fill="#1a5c00" font-size="9.5" font-family="Menlo">= 200</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 6 — context propagation -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="split">
+    <div>
+      <div class="eyebrow">How spans connect across services</div>
+      <h2>One header carries<br>the trace across <span class="g">every boundary.</span></h2>
+      <p style="margin-top:8px">When service A calls service B, it injects a <strong class="g">traceparent</strong> header. Service B extracts it and creates a child span. One trace spans all services.</p>
+      <div class="code" style="margin-top:14px;max-width:100%"><span class="b">traceparent</span>: <span class="g">00</span>-<span class="b">4bf92f3577b34da6a3ce929d0e0e4736</span>-<span class="o">00f067aa0ba902b7</span>-<span class="y">01</span></div>
+      <div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--g);display:inline-block"></span><span style="font-size:clamp(12px,.95vw,14px);color:var(--off)">version</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--b);display:inline-block"></span><span style="font-size:clamp(12px,.95vw,14px);color:var(--off)">trace-id (128 bit)</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--o);display:inline-block"></span><span style="font-size:clamp(12px,.95vw,14px);color:var(--off)">parent-id (64 bit)</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--y);display:inline-block"></span><span style="font-size:clamp(12px,.95vw,14px);color:var(--off)">sampled flag</span></div>
+      </div>
+      <p style="margin-top:10px;color:var(--mu);font-size:clamp(13px,1.05vw,15px)">The OTel SDK injects and extracts this automatically on every HTTP call. W3C Trace Context standard.</p>
+    </div>
+    <!-- animated propagation diagram -->
+    <svg viewBox="0 0 340 260" style="width:100%;max-width:340px;height:auto;overflow:visible">
+      <!-- service boxes -->
+      <rect x="10"  y="20"  width="110" height="44" rx="9" fill="rgba(45,122,0,.12)" stroke="#1a5c00" stroke-width="1.5"/>
+      <text x="65"  y="47"  text-anchor="middle" fill="#1a5c00" font-size="12" font-family="Inter" font-weight="600">Service A</text>
+      <rect x="210" y="20"  width="110" height="44" rx="9" fill="rgba(13,90,90,.1)" stroke="#0a6464" stroke-width="1.5"/>
+      <text x="265" y="47"  text-anchor="middle" fill="#0a6464" font-size="12" font-family="Inter" font-weight="600">Service B</text>
+      <rect x="210" y="110" width="110" height="44" rx="9" fill="rgba(184,80,0,.1)" stroke="#a84e00" stroke-width="1.5"/>
+      <text x="265" y="137" text-anchor="middle" fill="#a84e00" font-size="12" font-family="Inter" font-weight="600">Service C</text>
+      <rect x="10"  y="110" width="110" height="44" rx="9" fill="rgba(138,111,0,.1)" stroke="#6b5500" stroke-width="1.5"/>
+      <text x="65"  y="137" text-anchor="middle" fill="#6b5500" font-size="12" font-family="Inter" font-weight="600">Service D</text>
+      <!-- animated arrows -->
+      <line x1="120" y1="42" x2="210" y2="42" stroke="#0a6464" stroke-width="2" class="flow-arrow"/>
+      <polygon points="208,38 218,42 208,46" fill="#0a6464"/>
+      <line x1="265" y1="64" x2="265" y2="110" stroke="#a84e00" stroke-width="2" class="flow-arrow"/>
+      <polygon points="261,108 265,118 269,108" fill="#a84e00"/>
+      <line x1="65" y1="64" x2="65" y2="110" stroke="#6b5500" stroke-width="2" class="flow-arrow"/>
+      <polygon points="61,108 65,118 69,108" fill="#6b5500"/>
+      <!-- traceparent pill -->
+      <rect x="122" y="26" width="86" height="22" rx="5" fill="rgba(138,111,0,.1)" stroke="rgba(138,111,0,.3)" stroke-width="1"/>
+      <text x="165" y="40" text-anchor="middle" fill="#6b5500" font-size="8" font-family="Menlo">traceparent</text>
+      <!-- span timeline -->
+      <rect x="10"  y="185" width="320" height="7"  rx="2" fill="rgba(45,122,0,.25)"/>
+      <rect x="120" y="185" width="210" height="7"  rx="2" fill="rgba(13,90,90,.4)"/>
+      <rect x="120" y="185" width="65"  height="7"  rx="2" fill="rgba(184,80,0,.55)"/>
+      <rect x="190" y="185" width="65"  height="7"  rx="2" fill="rgba(184,80,0,.55)"/>
+      <rect x="260" y="185" width="65"  height="7"  rx="2" fill="rgba(184,80,0,.55)"/>
+      <rect x="10"  y="192" width="80"  height="7"  rx="2" fill="rgba(138,111,0,.45)"/>
+      <text x="10"  y="215" fill="rgba(22,51,0,.3)" font-size="8" font-family="Menlo">0ms</text>
+      <text x="320" y="215" fill="rgba(22,51,0,.3)" font-size="8" font-family="Menlo" text-anchor="end">1200ms</text>
+      <!-- span labels -->
+      <text x="10"  y="230" fill="rgba(45,122,0,.55)"  font-size="7.5" font-family="Menlo">svc-a</text>
+      <text x="120" y="230" fill="rgba(13,90,90,.6)"  font-size="7.5" font-family="Menlo">svc-b</text>
+      <text x="120" y="242" fill="rgba(184,80,0,.55)"  font-size="7.5" font-family="Menlo">svc-c</text>
+      <text x="10"  y="242" fill="rgba(138,111,0,.55)"  font-size="7.5" font-family="Menlo">svc-d</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 7 — logs vs traces -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">Logs vs Traces</div>
+  <h3 style="margin-bottom:10px">Traces answer questions that logs make nearly impossible.</h3>
+  <table class="tbl" style="margin-top:4px">
+    <thead><tr><th>Problem</th><th>Traces</th><th>Logs</th></tr></thead>
+    <tbody>
+      <tr><td style="color:var(--off)">An error occurred</td><td style="color:var(--green-text)">Easy — span ERROR status</td><td style="color:var(--green-text)">Easy — log the exception</td></tr>
+      <tr><td style="color:var(--off)">A service is slow</td><td style="color:var(--green-text)">Easy — long span in waterfall</td><td style="color:var(--red)">Hard — correlate timestamps</td></tr>
+      <tr><td style="color:var(--off)">Sequential vs concurrent</td><td style="color:var(--green-text)">Easy — overlap in waterfall</td><td style="color:var(--red)">Very hard — cross-service timing</td></tr>
+      <tr><td style="color:var(--off)">N+1 calls</td><td style="color:var(--green-text)">Easy — N identical sibling spans</td><td style="color:var(--red)">Hard — count lines per request</td></tr>
+      <tr><td style="color:var(--off)">Which input is slow</td><td style="color:var(--green-text)">Easy — filter span attributes</td><td style="color:var(--red)">Hard — aggregate many fields</td></tr>
+    </tbody>
+  </table>
+  <div class="cols3" style="margin-top:12px">
+    <div class="card" style="border-color:rgba(10,100,100,.2)">
+      <p style="font-size:clamp(12px,.95vw,14px);font-weight:700;color:var(--b);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px">Traces</p>
+      <p style="font-size:clamp(13px,1.05vw,15px)">Shows <em>which</em> request, <em>where</em> in the call graph, and timing relationships.</p>
+    </div>
+    <div class="card" style="border-color:rgba(168,78,0,.2)">
+      <p style="font-size:clamp(12px,.95vw,14px);font-weight:700;color:var(--o);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px">Logs</p>
+      <p style="font-size:clamp(13px,1.05vw,15px)">Explains <em>why</em> at the line level. Detailed per-event context.</p>
+    </div>
+    <div class="card" style="border-color:rgba(26,92,0,.2)">
+      <p style="font-size:clamp(12px,.95vw,14px);font-weight:700;color:var(--green-text);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px">Metrics</p>
+      <p style="font-size:clamp(13px,1.05vw,15px)">Tells you <em>that</em> something is wrong. Fires the alert.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 8 — history: one tight slide -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">Fundamentals</div>
+  <h2>Tracing in<br>production</h2>
+  <div class="snum">02</div>
+</section>
+
+<!-- 9 — history compressed to one slide -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">How we got here</div>
+  <h2>Every tracer today is built<br>on <span class="g">three fields from 2010.</span></h2>
+  <div class="split" style="margin-top:16px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:14px;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:var(--r)">
+        <span style="font-weight:700;color:var(--mu);min-width:36px;font-size:clamp(11px,.88vw,13px)">2010</span>
+        <div><p style="font-weight:600;color:var(--forest);margin-bottom:2px">Google Dapper</p><p style="color:var(--mu)">Invented the model: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">traceId · spanId · parentId</code>. Those three fields are in the <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">traceparent</code> header your services use right now.</p></div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:var(--r)">
+        <span style="font-weight:700;color:var(--mu);min-width:36px;font-size:clamp(11px,.88vw,13px)">2012</span>
+        <div><p style="font-weight:600;color:var(--forest);margin-bottom:2px">Twitter Zipkin</p><p style="color:var(--mu)">Open-sourced the Dapper model. First widely-adopted tracing system.</p></div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:var(--r)">
+        <span style="font-weight:700;color:var(--mu);min-width:36px;font-size:clamp(11px,.88vw,13px)">2017</span>
+        <div><p style="font-weight:600;color:var(--forest);margin-bottom:2px">Uber Jaeger</p><p style="color:var(--mu)">Built when Zipkin's storage layer couldn't handle 2,000+ services at Uber's scale. Now a CNCF project.</p></div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:var(--r)">
+        <span style="font-weight:700;color:var(--mu);min-width:36px;font-size:clamp(11px,.88vw,13px)">2019</span>
+        <div><p style="font-weight:600;color:var(--forest);margin-bottom:2px">OpenTelemetry</p><p style="color:var(--mu)">OpenTracing + OpenCensus merged. One vendor-neutral standard for traces, metrics, and logs. What this workshop uses.</p></div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:var(--r)">
+        <span style="font-weight:700;color:var(--mu);min-width:36px;font-size:clamp(11px,.88vw,13px)">2021</span>
+        <div><p style="font-weight:600;color:var(--forest);margin-bottom:2px">W3C TraceContext</p><p style="color:var(--mu)">Dapper's three fields became an official web standard. Interoperable across every vendor and language.</p></div>
+      </div>
+    </div>
+    <div style="padding:18px 22px;background:var(--forest);border-radius:var(--r);color:#fff">
+      <p style="font-size:clamp(11px,.88vw,13px);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(159,232,112,.7);margin-bottom:10px">The point</p>
+      <p style="color:rgba(255,255,255,.9)">The model is 15 years old and entirely stable. The tooling has changed; the three core concepts have not.</p>
+      <p style="margin-top:10px;color:rgba(255,255,255,.6)">Every backend — Jaeger, Tempo, Zipkin, Honeycomb, Datadog, AWS X-Ray — is a different storage and UI layer on top of the same Dapper model. Once you understand spans and trace context, you understand all of them.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10 — how large companies actually use traces -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">Production usage</div>
+  <h2>At scale, traces replace hours<br>of log archaeology with <span class="g">seconds.</span></h2>
+  <div class="cols2" style="margin-top:16px;gap:14px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="card" style="border-color:rgba(10,100,100,.25)">
+        <p style="font-weight:700;color:var(--b);margin-bottom:5px">Netflix — session failure reconstruction</p>
+        <p>A member tweets: "Why doesn't Tiger King play?" Before traces, engineers sifted through logs from CDN, auth, device, and streaming services manually. With a session trace ID, the full failure path — every service, every hop, every retry — is in one view in seconds. <span style="color:var(--mu)">Netflix TechBlog, 2020</span></p>
+      </div>
+      <div class="card" style="border-color:rgba(168,78,0,.25)">
+        <p style="font-weight:700;color:var(--o);margin-bottom:5px">Uber — dynamic sampling at 2,000+ services</p>
+        <p>"More people take rides during peak hours — a fixed sampling probability might be too low off-peak, yet too high at peak." Uber built dynamic backend-controlled rates that adjust for traffic seasonality and per-service downstream fanout — things individual services can't see. <span style="color:var(--mu)">Uber Engineering, 2017</span></p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="card" style="border-color:rgba(26,92,0,.25)">
+        <p style="font-weight:700;color:var(--green-text);margin-bottom:5px">Netflix Telltale — alert routing via trace topology</p>
+        <p>Telltale monitors 100+ production applications by combining traces, metrics, deployment events, and canary data into one health model. If the root cause is in an upstream service, Telltale routes the alert to <em>that</em> team automatically — using service topology derived from traces, not manual config. <span style="color:var(--mu)">Netflix TechBlog, 2020</span></p>
+      </div>
+      <div class="card" style="border-color:rgba(107,85,0,.25)">
+        <p style="font-weight:700;color:var(--y);margin-bottom:5px">Netflix — engineers explored &lt;1% of traces</p>
+        <p>Netflix measured how their Edgar tracing platform was actually used. Less than 1% of collected traces were ever opened. Nobody looks at healthy fast traces. This is the strongest argument for tail-based sampling: store only what matters. <span style="color:var(--mu)">Netflix TechBlog, 2020</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 — p99, HTTP 200, exemplars -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <div class="eyebrow">Two traps that traces solve</div>
+      <h2>A successful call<br>can still be <span style="color:var(--red)">slow</span> or <span style="color:var(--red)">wrong.</span></h2>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="padding:12px 16px;background:var(--bg2);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+          <p style="font-weight:700;color:var(--forest);margin-bottom:4px">Mean latency hides tail pain</p>
+          <p>Cloudflare found a 30–40% p99 improvement after a WAF change. Mean was nearly unchanged — no alert fired. <em>"The 99th percentile is more relevant as a regular page load will likely hit that case at some point."</em> A page with 70 requests hits p99 on at least one of them. <span style="color:var(--mu)">Cloudflare Engineering, 2020</span></p>
+        </div>
+        <div style="padding:12px 16px;background:var(--bg2);border-left:3px solid var(--b);border-radius:0 var(--r) var(--r) 0">
+          <p style="font-weight:700;color:var(--forest);margin-bottom:4px">HTTP 200 hides application errors</p>
+          <p>GraphQL returns HTTP 200 for partial failures. A financial services team had a gateway generating 3,000–4,000 spans per request. HTTP showed all-green. The trace showed exactly which subgraph failed. <em>"GraphQL will report HTTP 200, but the trace will show the error and where."</em> <span style="color:var(--mu)">OTel End-User Q&A, 2023</span></p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:10px">From p99 alert to root cause — in four steps</p>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--bg2);border-radius:8px">
+          <span style="background:var(--forest);color:#9FE870;font-weight:700;font-size:11px;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span>
+          <p style="margin:0">Metric alert fires: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">p99 > 2s</code> on <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">POST /orders</code></p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--bg2);border-radius:8px">
+          <span style="background:var(--forest);color:#9FE870;font-weight:700;font-size:11px;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</span>
+          <p style="margin:0">OTel Exemplar links the p99 metric bucket directly to a trace ID — one click in Grafana</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--bg2);border-radius:8px">
+          <span style="background:var(--forest);color:#9FE870;font-weight:700;font-size:11px;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</span>
+          <p style="margin:0">Waterfall: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">inventory.check</code> is 1.9s — attribute shows <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">warehouse=APAC qty=0</code></p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:rgba(26,92,0,.06);border:1px solid rgba(26,92,0,.18);border-radius:8px">
+          <span style="background:var(--green-text);color:#fff;font-weight:700;font-size:11px;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</span>
+          <p style="margin:0;color:var(--green-text)">Root cause found. No grep, no guessing, no log correlation.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 — sampling -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">Fundamentals</div>
+  <h2>Trace<br>sampling</h2>
+  <div class="snum">03</div>
+</section>
+
+<!-- 13 — three sampling strategies -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">Sampling</div>
+  <h2>Choose your strategy based<br>on what you can <span class="g">afford to miss.</span></h2>
+  <div class="cols3" style="margin-top:16px">
+    <div class="card" style="border-color:rgba(26,92,0,.25)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="pill pill-g">Always-on</span></div>
+      <p style="margin-bottom:8px">Record <strong style="color:var(--forest)">100%</strong> of traces. No decision made.</p>
+      <div class="code" style="font-size:clamp(10px,.8vw,12px);padding:8px 10px">management:
+  tracing:
+    sampling:
+      probability: <span class="g">1.0</span></div>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">
+        <p style="color:var(--green-text)">✓ Complete picture</p>
+        <p style="color:var(--red)">✗ Storage cost scales with traffic</p>
+        <p style="color:var(--mu);margin-top:3px"><strong style="color:var(--green-text)">This workshop.</strong> Dev and staging.</p>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(10,100,100,.25)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="pill pill-b">Head-based</span></div>
+      <p style="margin-bottom:8px">Decision at <strong style="color:var(--forest)">trace start</strong>. Random coin flip — propagated via the sampled flag in <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">traceparent</code>.</p>
+      <svg viewBox="0 0 200 52" style="width:100%;height:auto;margin:4px 0">
+        <rect x="2" y="12" width="50" height="28" rx="5" fill="rgba(13,90,90,.1)" stroke="#0a6464" stroke-width="1"/>
+        <text x="27" y="30" text-anchor="middle" fill="#0a6464" font-size="8" font-family="Inter">entry</text>
+        <text x="58" y="18" fill="rgba(22,51,0,.5)" font-size="7" font-family="Inter">flip</text>
+        <line x1="52" y1="26" x2="70" y2="16" stroke="#1a5c00" stroke-width="1.5"/>
+        <line x1="52" y1="26" x2="70" y2="38" stroke="#b02a1f" stroke-width="1.5"/>
+        <rect x="72" y="8" width="46" height="16" rx="4" fill="rgba(45,122,0,.15)" stroke="#1a5c00" stroke-width="1"/>
+        <text x="95" y="19" text-anchor="middle" fill="#1a5c00" font-size="7" font-family="Inter">keep</text>
+        <rect x="72" y="30" width="46" height="16" rx="4" fill="rgba(176,42,31,.09)" stroke="#b02a1f" stroke-width="1"/>
+        <text x="95" y="41" text-anchor="middle" fill="#b02a1f" font-size="7" font-family="Inter">drop</text>
+      </svg>
+      <p style="color:var(--green-text)">✓ Simple, low overhead</p>
+      <p style="color:var(--red)">✗ Can't keep rare errors you didn't know were coming</p>
+      <p style="color:var(--mu);margin-top:3px">High-volume production.</p>
+    </div>
+    <div class="card" style="border-color:rgba(107,85,0,.25)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="pill pill-y">Tail-based</span></div>
+      <p style="margin-bottom:8px">Decision at <strong style="color:var(--forest)">trace end</strong>. Buffer all spans, then decide based on outcome.</p>
+      <div class="code" style="font-size:clamp(9px,.78vw,11px);padding:7px 9px">policies:
+  - name: <span class="g">errors</span>
+    type: status_code
+    status_code: { status_codes: [ERROR] }
+  - name: <span class="g">slow</span>
+    type: latency
+    latency: { threshold_ms: <span class="y">2000</span> }
+  - name: <span class="g">baseline</span>
+    type: probabilistic
+    probabilistic: { sampling_percentage: <span class="y">5</span> }</div>
+      <p style="color:var(--green-text);margin-top:6px">✓ Keeps all errors + slow traces</p>
+      <p style="color:var(--red)">✗ Must buffer spans in memory; all spans of one trace must hit the same collector</p>
+      <p style="color:var(--mu);margin-top:3px">Production recommendation.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 14 — instrumentation section -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">Fundamentals</div>
+  <h2>Instrumentation</h2>
+  <div class="snum">04</div>
+</section>
+
+<!-- 15 — @Observed: name vs contextualName, low vs high cardinality -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">Spring Boot · Micrometer Observation</div>
+  <h2>One <code style="font-size:clamp(16px,1.6vw,26px);background:var(--bg2);padding:2px 8px;border-radius:6px">@Observed</code> gives you<br>a metric <span class="g">and</span> a span <span class="g">for free.</span></h2>
+  <div class="cols2" style="margin-top:16px;gap:clamp(16px,2.5vw,36px);align-items:start">
+    <div>
+      <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">
+<span class="g">@Observed</span>(name = <span class="pk" style="color:var(--pk)">"fx.call"</span>)
+fun getRate(
+  <span class="g">@ObservationKeyValue</span>(<span class="pk" style="color:var(--pk)">"route.type"</span>) routeType: String, ...
+): FxRateResponse {
+  Span.current().apply {               <span class="mu">// enriches AFTER span starts</span>
+    setAttribute(<span class="pk" style="color:var(--pk)">"fx.source_currency"</span>, sourceCurrency) <span class="mu">// span only</span>
+    setAttribute(<span class="pk" style="color:var(--pk)">"fx.rate"</span>,            response.rate)   <span class="mu">// span only</span>
+  }
+  <span class="mu">// thrown exception → auto ERROR status + timer tag error=ExClass</span>
+}</div>
+      <div style="margin-top:8px;padding:7px 12px;background:rgba(26,92,0,.06);border:1px solid rgba(26,92,0,.18);border-radius:7px">
+        <p><strong style="color:var(--green-text)">Thrown exceptions are automatic.</strong> <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> catches any throw, calls <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">observation.error(ex)</code>, sets span status <strong>ERROR</strong>, and tags the timer <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">error=ExceptionClassName</code>. You only set status manually for business rejections that return normally (e.g. a declined payment that doesn't throw).</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <!-- layer stack — tightened -->
+      <p class="label" style="margin-bottom:5px">The stack in this project</p>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="padding:7px 12px;background:rgba(26,92,0,.08);border:1px solid rgba(26,92,0,.2);border-radius:7px">
+          <p style="font-weight:700;color:var(--green-text);margin-bottom:1px">1. Micrometer <span style="font-weight:400;color:var(--mu)">— what you write</span></p>
+          <p><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> + <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">ObservedAspect</code>. Spring Boot auto-configures the registry.</p>
+        </div>
+        <div style="padding:7px 12px;background:rgba(10,100,100,.08);border:1px solid rgba(10,100,100,.2);border-radius:7px">
+          <p style="font-weight:700;color:var(--b);margin-bottom:1px">2. OTel SDK <span style="font-weight:400;color:var(--mu)">— runs under the hood via bridge</span></p>
+          <p>You never call it to <em>create</em> spans — only to <em>enrich</em> them: <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current().setAttribute(...)</code></p>
+        </div>
+        <div style="padding:7px 12px;background:rgba(168,78,0,.08);border:1px solid rgba(168,78,0,.2);border-radius:7px">
+          <p style="font-weight:700;color:var(--o);margin-bottom:1px">3. OTel Collector → Tempo → Grafana</p>
+          <p>Receives OTLP, stores spans, powers TraceQL queries.</p>
+        </div>
+      </div>
+
+      <!-- metrics ↔ tracing connection -->
+      <p class="label" style="margin-bottom:5px;margin-top:4px">How metrics and tracing connect</p>
+      <div style="padding:10px 14px;background:var(--bg2);border-radius:var(--r);border:1px solid var(--bdr)">
+        <p style="margin-bottom:7px"><strong style="color:var(--forest)">One <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> fires two handlers simultaneously:</strong></p>
+        <div style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:clamp(9px,.78vw,11.5px)">
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="color:var(--mu)">@Observed</span>
+            <span style="color:var(--mu)">─┬─→</span>
+            <span style="padding:2px 8px;background:rgba(26,92,0,.1);border-radius:4px;color:var(--green-text)">Timer fx.call.duration</span>
+            <span style="color:var(--mu);font-size:10px">p50/p95/p99, count</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;padding-left:60px">
+            <span style="color:var(--mu)">│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↑</span>
+            <span style="color:var(--mu);font-size:10px">exemplar: stores a trace_id on the metric data point</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="color:var(--mu)">──────</span>
+            <span style="color:var(--mu)">└─→</span>
+            <span style="padding:2px 8px;background:rgba(10,100,100,.1);border-radius:4px;color:var(--b)">Span "get fx rate"</span>
+            <span style="color:var(--mu);font-size:10px">your setAttribute() values</span>
+          </div>
+        </div>
+        <p style="margin-top:8px;color:var(--mu)">In Grafana: see a p99 spike on the metric chart → click the exemplar dot → jumps to the exact trace that caused it.</p>
+      </div>
+
+      <!-- cardinality note -->
+      <div style="padding:7px 12px;background:rgba(168,78,0,.06);border:1px solid rgba(168,78,0,.18);border-radius:7px">
+        <p><strong style="color:var(--o)">Why does cardinality matter?</strong> As a metric label, a high-cardinality value (like <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">fx.rate=5.3842</code>) creates a new time series per unique value — Prometheus explodes. In a trace, high cardinality is free. So: debug values → span only. Dashboard/alert values → keep them low-cardinality.</p>
+      </div>
+
+      <div style="padding:6px 12px;background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.2);border-radius:7px">
+        <p style="color:var(--red)">Never: PII · secrets · tokens · unbounded free text</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 16 — span vs event vs link -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">Three building blocks</div>
+  <h2>Use the right primitive — span, event,<br>or link — for <span class="g">each situation.</span></h2>
+  <div class="cols3" style="margin-top:16px">
+    <div class="card" style="border-color:rgba(10,100,100,.25)">
+      <p style="font-weight:700;color:var(--b);margin-bottom:8px;font-size:clamp(13px,1.1vw,16px)">Child Span</p>
+      <p style="margin-bottom:8px">A distinct sub-operation with its own <strong style="color:var(--forest)">duration worth measuring.</strong></p>
+      <div class="code" style="font-size:clamp(9px,.78vw,11.5px);padding:8px 10px"><span class="g">@Observed</span>(name = <span class="pk" style="color:var(--pk)">"fx.call"</span>)
+fun getRate(...) { ... }</div>
+      <p style="margin-top:8px;color:var(--mu)">Use when: calling another service, running a DB query, executing a business operation with meaningful latency.</p>
+    </div>
+    <div class="card" style="border-color:rgba(107,85,0,.25)">
+      <p style="font-weight:700;color:var(--y);margin-bottom:8px;font-size:clamp(13px,1.1vw,16px)">Span Event</p>
+      <p style="margin-bottom:8px">Something that happened at a <strong style="color:var(--forest)">point in time</strong> within a span. A timestamp + name + optional attributes.</p>
+      <div class="code" style="font-size:clamp(9px,.78vw,11.5px);padding:8px 10px"><span class="mu">// OTel Span API</span>
+Span.current().addEvent(
+  <span class="pk" style="color:var(--pk)">"cache.miss"</span>,
+  Attributes.of(
+    stringKey(<span class="pk" style="color:var(--pk)">"cache.key"</span>), key
+  )
+)</div>
+      <p style="margin-top:8px;color:var(--mu)">Use when: logging an exception, recording a cache miss, marking a routing decision — anything that happens <em>inside</em> an operation, not a sub-operation.</p>
+    </div>
+    <div class="card" style="border-color:rgba(168,78,0,.25)">
+      <p style="font-weight:700;color:var(--o);margin-bottom:8px;font-size:clamp(13px,1.1vw,16px)">Span Link</p>
+      <p style="margin-bottom:8px">A causal relationship between spans that are <strong style="color:var(--forest)">not parent-child.</strong></p>
+      <div class="code" style="font-size:clamp(9px,.78vw,11.5px);padding:8px 10px"><span class="mu">// When processing a batch:</span>
+<span class="mu">// one consumer, many producer spans</span>
+span.addLink(SpanContext.create(
+  producerTraceId,
+  producerSpanId, ...
+))</div>
+      <p style="margin-top:8px;color:var(--mu)">Use when: batch processing (many producers → one consumer), async messaging fan-in, deferred jobs triggered by a previous trace. A parent-child would create a false single parent trace.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 17 — telemetry semantics section -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">Fundamentals</div>
+  <h2>Telemetry<br>semantics</h2>
+  <div class="snum">05</div>
+</section>
+
+<!-- 18 — span naming: the OTel rule + verbatim table -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">Span naming — from the OTel specification</div>
+  <h2>A span name describes the <span class="g">operation class,</span><br>never the instance.</h2>
+  <div class="split" style="margin-top:16px;align-items:start">
+    <div>
+      <p style="margin-bottom:12px">The exact OTel rule: <em>"A span name SHOULD be the most general string that identifies a statistically interesting class of Spans, rather than individual instances."</em></p>
+      <table class="tbl">
+        <thead><tr><th>Span name</th><th>Verdict</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>get</td><td style="color:var(--red)">Too general</td><td style="color:var(--mu)">Meaningless — can't aggregate</td></tr>
+          <tr><td>get_account/42</td><td style="color:var(--red)">Too specific</td><td style="color:var(--mu)">High cardinality, 42 is an instance</td></tr>
+          <tr><td>get_account</td><td style="color:var(--green-text)">Good</td><td style="color:var(--mu)">account_id=42 as attribute</td></tr>
+          <tr><td>get_account/{accountId}</td><td style="color:var(--green-text)">Also good</td><td style="color:var(--mu)">Template placeholder convention</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px;color:var(--mu)">Source: OTel Trace API specification (stable, opentelemetry.io)</p>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:10px">Applied to this workshop</p>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;gap:10px;align-items:baseline">
+          <span style="color:var(--red);font-family:var(--mono);font-size:clamp(10px,.82vw,13px);min-width:160px;text-decoration:line-through">get-EUR-BRL-route-721</span>
+          <span style="color:var(--mu);font-size:11px">instance baked in</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:baseline">
+          <span style="color:var(--green-text);font-family:var(--mono);font-size:clamp(10px,.82vw,13px);min-width:160px;font-weight:600">fx.call</span>
+          <span style="color:var(--mu);font-size:11px">stable operation name ✓</span>
+        </div>
+        <div style="height:1px;background:var(--bdr);margin:4px 0"></div>
+        <div style="display:flex;gap:10px;align-items:baseline">
+          <span style="color:var(--red);font-family:var(--mono);font-size:clamp(10px,.82vw,13px);min-width:160px;text-decoration:line-through">TransferService.prepare</span>
+          <span style="color:var(--mu);font-size:11px">class name, not operation</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:baseline">
+          <span style="color:var(--green-text);font-family:var(--mono);font-size:clamp(10px,.82vw,13px);min-width:160px;font-weight:600">pricing.calculate</span>
+          <span style="color:var(--mu);font-size:11px">domain operation ✓</span>
+        </div>
+        <div style="height:1px;background:var(--bdr);margin:4px 0"></div>
+        <div style="padding:10px 12px;background:var(--bg2);border-radius:8px">
+          <p style="font-weight:600;color:var(--forest);margin-bottom:4px">The rule in one sentence</p>
+          <p>The name describes the <em>operation</em>. Attributes describe the <em>instance</em>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 19 — attribute naming schema conventions -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">Attribute naming — OTel semantic conventions</div>
+  <h2>Reuse existing conventions first.<br>Define custom ones <span class="g">only when you must.</span></h2>
+  <div class="cols2" style="margin-top:14px;gap:clamp(16px,2.5vw,36px);align-items:start">
+    <div>
+      <p class="label" style="color:var(--b);margin-bottom:8px">OTel semantic conventions — use these</p>
+      <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Infrastructure — always prefer OTel semconv</span>
+<span class="b">http.request.method</span>     <span class="mu">// not "httpMethod"</span>
+<span class="b">http.response.status_code</span> <span class="mu">// not "responseCode"</span>
+<span class="b">db.system.name</span>           <span class="mu">// not "databaseType"</span>
+<span class="b">messaging.system</span>          <span class="mu">// not "queue"</span>
+<span class="b">error.type</span>               <span class="mu">// not "exceptionClass"</span>
+<span class="b">server.address</span>            <span class="mu">// not "targetHost"</span></div>
+      <p class="label" style="color:var(--o);margin-bottom:8px;margin-top:12px">Custom domain attributes — when OTel doesn't cover it</p>
+      <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Dot-namespaced, lowercase, snake_case words</span>
+<span class="o">transfer.id</span>                   <span class="mu">// high-cardinality</span>
+<span class="o">transfer.target_currency</span>      <span class="mu">// low-cardinality</span>
+<span class="o">pricing.strategy</span>              <span class="mu">// low-cardinality</span>
+<span class="o">pricing.route_candidate_count</span>  <span class="mu">// low-cardinality</span>
+<span class="o">fx.provider</span>                   <span class="mu">// low-cardinality</span></div>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:10px">The naming rules (from the OTel naming spec)</p>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="padding:8px 12px;background:var(--bg2);border-radius:8px;display:flex;gap:10px;align-items:flex-start">
+          <span style="color:var(--green-text);font-weight:700;font-size:13px;flex-shrink:0">→</span>
+          <p style="margin:0"><strong style="color:var(--forest)">Lowercase.</strong> <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">transfer.id</code> not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Transfer.ID</code></p>
+        </div>
+        <div style="padding:8px 12px;background:var(--bg2);border-radius:8px;display:flex;gap:10px;align-items:flex-start">
+          <span style="color:var(--green-text);font-weight:700;font-size:13px;flex-shrink:0">→</span>
+          <p style="margin:0"><strong style="color:var(--forest)">Dot namespaces.</strong> Domain prefix, then property: <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">pricing.strategy</code> not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">pricingStrategy</code></p>
+        </div>
+        <div style="padding:8px 12px;background:var(--bg2);border-radius:8px;display:flex;gap:10px;align-items:flex-start">
+          <span style="color:var(--green-text);font-weight:700;font-size:13px;flex-shrink:0">→</span>
+          <p style="margin:0"><strong style="color:var(--forest)">Snake_case within components.</strong> <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">transfer.target_currency</code> not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">transfer.targetCurrency</code></p>
+        </div>
+        <div style="padding:8px 12px;background:var(--bg2);border-radius:8px;display:flex;gap:10px;align-items:flex-start">
+          <span style="color:var(--green-text);font-weight:700;font-size:13px;flex-shrink:0">→</span>
+          <p style="margin:0"><strong style="color:var(--forest)">Be precise.</strong> <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">file.owner.name</code> not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">file.owner</code></p>
+        </div>
+        <div style="padding:8px 12px;background:var(--bg2);border-radius:8px;display:flex;gap:10px;align-items:flex-start">
+          <span style="color:var(--green-text);font-weight:700;font-size:13px;flex-shrink:0">→</span>
+          <p style="margin:0"><strong style="color:var(--forest)">Never rename silently.</strong> Renaming an attribute breaks existing dashboards, alerts, and queries. Deprecate with a migration path.</p>
+        </div>
+        <div style="padding:8px 12px;background:var(--bg2);border-radius:8px;display:flex;gap:10px;align-items:flex-start">
+          <span style="color:var(--green-text);font-weight:700;font-size:13px;flex-shrink:0">→</span>
+          <p style="margin:0"><strong style="color:var(--forest)">Custom namespace prefix.</strong> For company-internal attributes: <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">com.wise.transfer.id</code> avoids clashing with future OTel conventions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 20 — dos and don'ts section -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">Fundamentals</div>
+  <h2>Dos &amp;<br>Don'ts</h2>
+  <div class="snum">06</div>
+</section>
+
+<!-- 21 — dos: instrument well -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">What to do</div>
+  <h2>Instrument meaningful boundaries.<br>Keep everything <span class="g">low-noise.</span></h2>
+  <div class="cols2" style="margin-top:16px;gap:14px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Instrument at meaningful operation boundaries</p>
+        <p>Service calls, DB queries, business operations — anything that would appear in a sequence diagram for your domain. Not every function.</p>
+      </div>
+      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Add business context as attributes</p>
+        <p>Span name alone rarely tells you which input triggered the problem. Attributes like <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">pricing.strategy</code> and <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">transfer.amount</code> are what let you find the affected requests.</p>
+      </div>
+      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Thrown exceptions set ERROR status automatically</p>
+        <p><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> catches any throw and calls <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">observation.error(ex)</code> — span status becomes ERROR, timer is tagged <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">error=ExceptionClass</code>. You only need to set it <em>manually</em> for business rejections that return normally without throwing (e.g. a declined payment returning a result object). Use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current().setStatus(StatusCode.ERROR, "reason")</code> for those.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@ObservationKeyValue</code> on parameters for start-time values</p>
+        <p>With <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code>, the span already exists before your method body runs — you can't add attributes "at creation" from inside the body. Instead, annotate method <strong>parameters</strong> with <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@ObservationKeyValue("key")</code>: those values are captured at span start and can become metric tags and influence tail samplers. Values computed inside the body via <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current().setAttribute(...)</code> enrich the span only — which is fine for tracing, but they miss the timer and the sampler.</p>
+      </div>
+      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Prefer OTel semantic conventions</p>
+        <p>Use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">http.response.status_code</code> not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">responseCode</code>. Standard names make your traces queryable by anyone and compatible with every observability backend.</p>
+      </div>
+      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Keep tail sampling in production</p>
+        <p>Always keep 100% of ERROR spans and slow traces. Drop healthy fast traces. Netflix's lesson: &lt;1% of traces are ever looked at — store that 1% well.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 22 — don'ts: common mistakes -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">What not to do</div>
+  <h2>More spans ≠ better observability.<br>More noise = <span style="color:var(--red)">harder to find the signal.</span></h2>
+  <div class="cols2" style="margin-top:16px;gap:14px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="padding:10px 14px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--red);margin-bottom:3px">Span explosion — wrapping every function</p>
+        <p>A financial services team disabled HTTP auto-instrumentation entirely because it added hundreds of spans per request with no diagnostic value, drowning useful business spans. Instrument operations, not implementation details. <span style="color:var(--mu)">OTel End-User Q&A, 2023</span></p>
+      </div>
+      <div style="padding:10px 14px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--red);margin-bottom:3px">High-cardinality data in span <em>names</em></p>
+        <p>OTel default limit: 128 attributes per span. But span names are indexed differently — every unique name is a new bucket in your trace backend. <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">get-rate-EUR-BRL-route-721</code> creates unbounded index entries. Put variable data in attributes.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="padding:10px 14px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--red);margin-bottom:3px">PII or secrets in span attributes</p>
+        <p>Trace data is indexed, queryable, and retained. Names, account numbers, auth tokens, API keys — none of these belong in span attributes. Breaches telemetry isolation and likely violates GDPR and internal data policies.</p>
+      </div>
+      <div style="padding:10px 14px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--red);margin-bottom:3px">Tracing as a log replacement</p>
+        <p>Traces show structure and timing. They don't show detailed line-by-line context — what the exception message said, what the SQL query returned, the full stack trace. You still need logs for that. <em>Traces and logs complement each other.</em></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 23 — TraceQL section -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">Fundamentals</div>
+  <h2>Querying traces<br>in Grafana</h2>
+  <div class="snum">07</div>
+</section>
+
+<!-- 24 — TraceQL basics -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">TraceQL — Grafana Tempo's query language</div>
+  <h2>TraceQL selects spans the same way<br>SQL selects rows — <span class="g">with conditions.</span></h2>
+  <div class="split" style="margin-top:14px;align-items:start">
+    <div>
+      <p style="margin-bottom:10px">Curly braces <code style="background:var(--bg2);padding:1px 6px;border-radius:4px">{ }</code> select spans. Conditions filter them. A pipeline <code style="background:var(--bg2);padding:1px 6px;border-radius:4px">|</code> aggregates the result.</p>
+      <p class="label" style="margin-bottom:6px">Two scopes: span attributes vs resource attributes</p>
+      <div class="code" style="font-size:clamp(10px,.82vw,13px);margin-bottom:12px"><span class="mu">// span. → attributes on the span itself</span>
+{ <span class="b">span.http.response.status_code</span> >= 500 }
+
+<span class="mu">// resource. → attributes on the service (host, version, env)</span>
+{ <span class="b">resource.service.name</span> = <span class="pk" style="color:var(--pk)">"pricing-service"</span> }
+
+<span class="mu">// intrinsics — duration, status, childCount (no scope prefix needed)</span>
+{ <span class="b">duration</span> > <span class="y">2s</span> }            <span class="mu">// this span's duration</span>
+{ <span class="b">status</span> = <span class="pk" style="color:var(--pk)">error</span> }
+{ <span class="b">span:childCount</span> > <span class="y">10</span> }    <span class="mu">// direct child span count</span>
+{ <span class="b">trace:duration</span> > <span class="y">5s</span> }    <span class="mu">// whole trace incl. async jobs</span></div>
+      <p class="label" style="margin-bottom:6px">Combine conditions</p>
+      <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// AND within one span</span>
+{ <span class="b">resource.service.name</span> = <span class="pk" style="color:var(--pk)">"frontend"</span>
+   && <span class="b">name</span> = <span class="pk" style="color:var(--pk)">"POST /api/orders"</span>
+   && <span class="b">duration</span> > <span class="y">2s</span> }
+
+<span class="mu">// AND across different spans in the same trace</span>
+{ <span class="b">resource.service.name</span> = <span class="pk" style="color:var(--pk)">"frontend"</span> }
+  && { <span class="b">span.http.response.status_code</span> >= 500 }</div>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:8px">Where to write queries in Grafana</p>
+      <div style="padding:12px 16px;background:var(--bg2);border-radius:var(--r);margin-bottom:12px">
+        <p style="font-weight:600;color:var(--forest);margin-bottom:4px">Grafana → Explore → Tempo data source</p>
+        <p style="color:var(--mu)">Select "Search" tab for the query builder, or "TraceQL" tab to write queries directly. The Workshop dashboard also has pre-built panels with TraceQL already configured.</p>
+      </div>
+      <p class="label" style="margin-bottom:8px">Key intrinsics — the fast filters</p>
+      <table class="tbl">
+        <thead><tr><th>Intrinsic</th><th>Type</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td>name <span style="color:var(--mu);font-weight:400">(= span:name)</span></td><td style="color:var(--mu)">string</td><td style="color:var(--mu)"><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">= "POST /orders"</code></td></tr>
+          <tr><td>duration</td><td style="color:var(--mu)">duration</td><td style="color:var(--mu)"><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">&gt; 2s</code></td></tr>
+          <tr><td>span:status</td><td style="color:var(--mu)">enum</td><td style="color:var(--mu)"><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">= error</code></td></tr>
+          <tr><td>span:childCount</td><td style="color:var(--mu)">integer</td><td style="color:var(--mu)"><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">&gt; 5</code></td></tr>
+          <tr><td>trace:duration</td><td style="color:var(--mu)">duration</td><td style="color:var(--mu)"><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">&gt; 5s</code> fast, includes async</td></tr>
+          <tr><td>trace:rootService</td><td style="color:var(--mu)">string</td><td style="color:var(--mu)"><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">= "api"</code> (fast)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- 25 — TraceQL power queries -->
+<section class="slide">
+  <div class="pbanner">Part 1</div>
+  <div class="eyebrow">TraceQL — power queries</div>
+  <h2>Aggregates and structural operators<br>find patterns <span class="g">no log query can.</span></h2>
+  <div class="cols2" style="margin-top:14px;gap:clamp(16px,2.5vw,36px);align-items:start">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <p class="label" style="color:var(--red);margin-bottom:5px">Detect N+1 — too many identical calls</p>
+        <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Find traces with >3 spans hitting the same endpoint</span>
+{ <span class="b">span.http.method</span> = <span class="pk" style="color:var(--pk)">"POST"</span>
+  && <span class="b">resource.service.name</span> = <span class="pk" style="color:var(--pk)">"screening-service"</span> }
+  | <span class="g">count()</span> > <span class="y">3</span></div>
+      </div>
+      <div>
+        <p class="label" style="color:var(--o);margin-bottom:5px">Find fan-out — high child count</p>
+        <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Spans spawning more than 10 children</span>
+{ <span class="b">span:childCount</span> > <span class="y">10</span> }
+
+<span class="mu">// Group by service to find the worst offenders</span>
+{ <span class="b">span:childCount</span> > <span class="y">5</span> }
+  | <span class="g">by</span>(<span class="b">resource.service.name</span>)
+  | <span class="g">count()</span></div>
+      </div>
+      <div>
+        <p class="label" style="color:var(--b);margin-bottom:5px">Structural — API call that touched the DB</p>
+        <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Descendant operator >> : find traces where</span>
+<span class="mu">// a specific API endpoint reaches a specific DB</span>
+{ <span class="b">span.http.url</span> = <span class="pk" style="color:var(--pk)">"/api/orders"</span> }
+  >> { <span class="b">span.db.system</span> = <span class="pk" style="color:var(--pk)">"postgresql"</span> }</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <p class="label" style="color:var(--y);margin-bottom:5px">Find the last error in a cascade</p>
+        <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Not-child !< : leaf error span</span>
+<span class="mu">// (the root cause, not a symptom)</span>
+{ <span class="b">span:status</span> = <span class="pk" style="color:var(--pk)">error</span> }
+  !< { <span class="b">span:status</span> = <span class="pk" style="color:var(--pk)">error</span> }</div>
+      </div>
+      <div>
+        <p class="label" style="color:var(--green-text);margin-bottom:5px">Env isolation check</p>
+        <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Find traces that crossed prod AND staging</span>
+<span class="mu">// (misconfiguration / data leak check)</span>
+{ <span class="b">resource.deployment.environment</span>
+    = <span class="pk" style="color:var(--pk)">"production"</span> }
+  && { <span class="b">resource.deployment.environment</span>
+    = <span class="pk" style="color:var(--pk)">"staging"</span> }</div>
+      </div>
+      <div style="padding:10px 12px;background:rgba(26,92,0,.06);border:1px solid rgba(26,92,0,.18);border-radius:8px">
+        <p style="font-weight:600;color:var(--forest);margin-bottom:4px">In Grafana Explore → Tempo</p>
+        <p style="color:var(--mu)">Paste any query into the TraceQL tab. Results show matching traces; click any to open the full waterfall. Use the time range selector to scope to the incident window.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════
+  PART 2 — WORKSHOP
+══════════════════════════════════════════════ -->
+<!-- 13 -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 2</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">Hands-on</div>
+  <h2>Workshop</h2>
+  <div class="snum">04</div>
+</section>
+
+<!-- 14 — setup -->
+<section class="slide">
+  <div class="pbanner">Part 2</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <div class="eyebrow">Setup</div>
+      <h2>Start your<br>environment</h2>
+      <div class="code" style="margin-top:14px;max-width:100%"><span class="mu"># Start the full stack</span>
+./start.sh
+
+<span class="mu"># Verify all services are healthy</span>
+./scripts/verify-environment.sh
+
+<span class="mu"># Generate baseline traffic</span>
+./scripts/generate-traffic.sh</div>
+      <p style="margin-top:12px;color:var(--mu)">When ready you'll see the workshop banner. Wait ~30s after first traffic for spans to appear in Grafana.</p>
+      <div style="margin-top:10px;padding:8px 12px;background:rgba(13,90,90,.06);border:1px solid rgba(13,90,90,.2);border-radius:8px">
+        <p style="color:var(--b)">Grafana opens at <strong style="color:var(--forest)">http://localhost:3000</strong> — the Workshop dashboard is the home page.</p>
+      </div>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:10px">All 13 services in this stack</p>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div class="attr"><span class="attr-k" style="color:var(--ct)">transfer</span><span style="font-family:var(--mono);color:var(--green-text)">:8080</span><span class="attr-n">Public API entry point</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--cp)">pricing</span><span style="font-family:var(--mono);color:var(--green-text)">:8081</span><span class="attr-n">Route strategy + FX aggregation</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--cf)">fx</span><span style="font-family:var(--mono);color:var(--green-text)">:8082</span><span class="attr-n">Simulated FX rate provider</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--mu)">support</span><span style="font-family:var(--mono);color:var(--green-text)">:8083</span><span class="attr-n">Limits + compliance + routing</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--mu)">auth</span><span style="font-family:var(--mono);color:var(--green-text)">:8084</span><span class="attr-n">Token validation → session</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--mu)">session</span><span style="font-family:var(--mono);color:var(--green-text)">:8085</span><span class="attr-n">Session store</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--cr)">risk</span><span style="font-family:var(--mono);color:var(--green-text)">:8086</span><span class="attr-n">Risk scoring → device + screening</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--mu)">device</span><span style="font-family:var(--mono);color:var(--green-text)">:8087</span><span class="attr-n">Device fingerprinting</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--mu)">ledger</span><span style="font-family:var(--mono);color:var(--green-text)">:8088</span><span class="attr-n">Fund reservation + commit</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--mu)">accounts</span><span style="font-family:var(--mono);color:var(--green-text)">:8089</span><span class="attr-n">Account balances</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--mu)">notification</span><span style="font-family:var(--mono);color:var(--green-text)">:8090</span><span class="attr-n">Email / push notifications</span></div>
+        <div class="attr"><span class="attr-k" style="color:var(--mu)">audit</span><span style="font-family:var(--mono);color:var(--green-text)">:8091</span><span class="attr-n">Audit event log</span></div>
+        <div class="attr" style="border:none"><span class="attr-k" style="color:var(--cs)">screening</span><span style="font-family:var(--mono);color:var(--green-text)">:8092</span><span class="attr-n">Watchlist screening</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 15 — investigation 1 -->
+<section class="slide">
+  <div class="pbanner">Part 2</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <div class="eyebrow">Investigation 1</div>
+      <h2>The slow<br>transfer</h2>
+      <p style="margin-top:8px">Most requests complete in well under a second. Some take roughly <strong style="color:var(--red)">3× longer</strong>. Every service returns <span style="color:var(--green-text);font-weight:600">200 OK</span>. The logs look normal.</p>
+      <p style="margin-top:8px;color:var(--mu)">Your goal: find which span is slow, why, and what the waterfall tells you — using only Grafana.</p>
+      <div class="code" style="margin-top:14px;font-size:clamp(11px,.88vw,13px)"><span class="mu"># Generate traffic</span>
+./scripts/generate-traffic.sh
+
+<span class="mu"># Find slow request spans in Grafana</span>
+{ <span class="b">resource.service.name</span> = <span class="pk" style="color:var(--pk)">"transfer-service"</span>
+  &amp;&amp; <span class="b">name</span> = <span class="pk" style="color:var(--pk)">"http post /transfers/prepare"</span>
+  &amp;&amp; <span class="y">duration</span> &gt; <span class="g">2s</span> }</div>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:8px">Questions to answer</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="card" style="padding:10px 14px">
+          <p style="font-weight:600;color:var(--w);margin-bottom:3px">Waterfall structure</p>
+          <p>Which service contains the longest span? How many child spans does it have? Do those spans overlap in time or run one after another?</p>
+        </div>
+        <div class="card" style="padding:10px 14px">
+          <p style="font-weight:600;color:var(--w);margin-bottom:3px">Span attributes</p>
+          <p>Open a slow trace and a fast trace. Compare the attributes on each span. What is different? What attributes tell you which input combination triggered the slowdown?</p>
+        </div>
+        <div class="card" style="padding:10px 14px">
+          <p style="font-weight:600;color:var(--w);margin-bottom:3px">Timing pattern</p>
+          <p>Look at the timing of the child spans under the slow parent. What does the waterfall shape tell you about how the work is being executed?</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 16 — investigation 2 -->
+<section class="slide">
+  <div class="pbanner">Part 2</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <div class="eyebrow">Investigation 2</div>
+      <h2>The silent<br>problem</h2>
+      <p style="margin-top:8px">The risk service occasionally takes significantly longer than usual. <strong style="color:var(--red)">No errors</strong>, no warnings, nothing unusual in any log. Every individual call returns 200 OK.</p>
+      <p style="margin-top:8px;color:var(--mu)">Your goal: find what's different in the trace <em>structure</em>. What does the waterfall show that logs cannot?</p>
+      <div class="code" style="margin-top:14px;font-size:clamp(11px,.88vw,13px)"><span class="mu"># Generate traffic (includes requests that trigger the issue)</span>
+./scripts/generate-traffic.sh
+
+<span class="mu"># Find risk service traces in Grafana</span>
+{ <span class="b">resource.service.name</span> = <span class="pk" style="color:var(--pk)">"risk-service"</span> }</div>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:8px">Questions to answer</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="card" style="padding:10px 14px">
+          <p style="font-weight:600;color:var(--w);margin-bottom:3px">Span count</p>
+          <p>Compare the number of child spans on a slow risk trace vs a normal one. What is different about the structure?</p>
+        </div>
+        <div class="card" style="padding:10px 14px">
+          <p style="font-weight:600;color:var(--w);margin-bottom:3px">Span attributes</p>
+          <p>Look at the attributes on the child spans. What are they doing? Do the spans look meaningful or wasteful?</p>
+        </div>
+        <div class="card" style="padding:10px 14px">
+          <p style="font-weight:600;color:var(--w);margin-bottom:3px">Why logs miss it</p>
+          <p>Open the risk-service logs in Loki. Does anything look wrong? Why is the trace the only place this problem is visible?</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 17 — working time -->
+<section class="slide s-dark">
+  <div class="pbanner">Part 2</div>
+  <div>
+    <div class="eyebrow">Hands-on time</div>
+    <h1 style="font-size:clamp(32px,4vw,64px)">Investigate.</h1>
+    <p style="margin-top:10px;max-width:48ch">Open Grafana, generate traffic, find the slow traces, expand the waterfall, read the attributes. Try to explain what is happening <strong style="color:var(--w)">before</strong> looking at any code.</p>
+    <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+      <span class="chip chip-n">Grafana :3000</span>
+      <span class="chip chip-n">API :8080</span>
+    </div>
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px;max-width:52ch">
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:var(--bg3);border-radius:8px">
+        <span style="color:var(--green-text);font-weight:700;min-width:20px">1</span>
+        <p style="margin:0">Run <code style="background:var(--bg2);padding:1px 6px;border-radius:4px">./scripts/generate-traffic.sh</code> to populate traces</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:var(--bg3);border-radius:8px">
+        <span style="color:var(--green-text);font-weight:700;min-width:20px">2</span>
+        <p style="margin:0">Open the Workshop dashboard → click <strong style="color:var(--w)">2 — Slow requests</strong></p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:var(--bg3);border-radius:8px">
+        <span style="color:var(--green-text);font-weight:700;min-width:20px">3</span>
+        <p style="margin:0">Open a slow trace. Expand the waterfall. Read the attributes. What do you see?</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:var(--bg3);border-radius:8px">
+        <span style="color:var(--green-text);font-weight:700;min-width:20px">4</span>
+        <p style="margin:0">Explore the risk service traces. Compare span counts. What is different?</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+  PART 3 — REVEAL
+══════════════════════════════════════════════ -->
+<!-- 18 -->
+<section class="slide s-sec">
+  <div class="pbanner">Part 3</div>
+  <div class="eyebrow" style="color:rgba(159,232,112,.7)">The answers</div>
+  <h2>Reveal</h2>
+  <div class="snum">05</div>
+</section>
+
+<!-- 19 — the alert + clean logs -->
+<section class="slide s-reveal">
+  <div class="pbanner">Part 3</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <div class="eyebrow">The story starts here</div>
+      <h2>Alert fired.<br><span class="g">Logs looked fine.</span></h2>
+      <div style="margin-top:10px;padding:10px 14px;background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.25);border-radius:8px;margin-bottom:12px">
+        <p style="font-size:clamp(13px,1.05vw,15px);color:var(--red)">ALERT p99 latency on transfer-service &gt; 3s</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div class="log"><span style="color:var(--mu)">08:41:03 </span><span style="color:var(--ct);font-weight:600">transfer </span> auth valid=true <span class="g">200 OK</span></div>
+        <div class="log"><span style="color:var(--mu)">08:41:03 </span><span style="color:var(--cp);font-weight:600">pricing  </span> strategy=MULTI_ROUTE <span class="g">200 OK</span></div>
+        <div class="log"><span style="color:var(--mu)">08:41:03 </span><span style="color:var(--cf);font-weight:600">fx       </span> rate=5.42 <span class="g">200 OK</span></div>
+        <div class="log"><span style="color:var(--mu)">08:41:04 </span><span style="color:var(--cf);font-weight:600">fx       </span> rate=5.38 <span class="g">200 OK</span></div>
+        <div class="log"><span style="color:var(--mu)">08:41:05 </span><span style="color:var(--cf);font-weight:600">fx       </span> rate=5.41 <span class="g">200 OK</span></div>
+        <div class="log"><span style="color:var(--mu)">08:41:06 </span><span style="color:var(--ct);font-weight:600">transfer </span> bestRate=5.38 <span class="g">200 OK</span></div>
+      </div>
+      <p style="margin-top:12px;font-size:clamp(13px,1.05vw,16px);font-style:italic;color:var(--mu)">Every call succeeded. The user still waited five seconds.</p>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:8px;color:var(--green-text)">Open the trace instead</p>
+      <div class="wf">
+        <div class="wf-r"><div class="wf-l" style="color:var(--ct)">POST /transfers</div><div class="wf-t"><div class="wf-b" style="left:0;width:100%;background:rgba(45,122,0,.15);border:1px solid var(--ct)"></div></div><div class="wf-d">3100ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--mu);padding-left:12px">auth</div><div class="wf-t"><div class="wf-b" style="left:0;width:3%;background:rgba(255,255,255,.2)"></div></div><div class="wf-d">18ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cp);padding-left:12px">pricing.calculate</div><div class="wf-t"><div class="wf-b" style="left:4%;width:95%;background:rgba(13,90,90,.2);border:1px solid var(--cp)"></div></div><div class="wf-d">2950ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:24px;color:var(--red)">fx.call A ←</div><div class="wf-t"><div class="wf-b" style="left:4%;width:31%;background:var(--cf)"></div></div><div class="wf-d">960ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:24px;color:var(--red)">fx.call B ←</div><div class="wf-t"><div class="wf-b" style="left:35%;width:31%;background:var(--cf)"></div></div><div class="wf-d">975ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:24px;color:var(--red)">fx.call C ←</div><div class="wf-t"><div class="wf-b" style="left:66%;width:31%;background:var(--cf)"></div></div><div class="wf-d">970ms</div></div>
+      </div>
+      <div style="margin-top:10px;padding:8px 12px;background:rgba(192,57,43,.07);border:1px solid rgba(192,57,43,.3);border-radius:8px">
+        <p style="font-size:clamp(13px,1.05vw,15px);color:var(--red)">B starts when A ends. C starts when B ends. No overlap. Sequential. Obvious in the waterfall in 2 seconds.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 20 — bug 1 attributes + code -->
+<section class="slide s-reveal">
+  <div class="pbanner">Part 3</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <div class="eyebrow">Bug 1 — Attributes identify the trigger</div>
+      <h3 style="margin-bottom:10px">Why only some requests are slow</h3>
+      <div style="display:flex;flex-direction:column;gap:0;max-width:100%">
+        <div class="attr"><span class="attr-k">pricing.strategy</span><span class="attr-v" style="color:var(--o)">MULTI_ROUTE</span><span class="attr-n">only strategy with 3 FX calls</span></div>
+        <div class="attr"><span class="attr-k">pricing.route_candidate_count</span><span class="attr-v" style="color:var(--o)">3</span><span class="attr-n">3 × 1s = 3s</span></div>
+        <div class="attr"><span class="attr-k">transfer.target_currency</span><span class="attr-v" style="color:var(--green-text)">BRL</span><span class="attr-n">triggers MULTI_ROUTE</span></div>
+        <div class="attr" style="border:none"><span class="attr-k">transfer.amount</span><span class="attr-v" style="color:var(--green-text)">15000</span><span class="attr-n">≥10000 required</span></div>
+      </div>
+      <p style="margin-top:10px;font-size:clamp(13px,1.05vw,15px);color:var(--mu)">EUR→BRL, BANK_TRANSFER, amount ≥10000. All four must be true. The attributes tell you exactly which requests are affected.</p>
+      <div class="code" style="margin-top:10px;font-size:9.5px"><span class="mu"># TraceQL to find all affected requests</span>
+{ <span class="b">span.pricing.strategy</span> = <span class="pk" style="color:var(--pk)">"MULTI_ROUTE"</span>
+  &amp;&amp; <span class="y">duration</span> &gt; <span class="g">2s</span> }</div>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:8px;color:var(--red)">The code — PricingController.kt:60</p>
+      <div class="code" style="font-size:10.5px"><span class="mu">// Plain sequential map — each call blocks until done</span>
+<span class="bad">val rates = candidates.map { candidate ->
+    fxClient.getRate(
+        request.sourceCurrency,
+        request.targetCurrency,
+        candidate  <span class="mu">// ← waits ~1s before next iteration</span>
+    )
+}</span>
+
+<span class="mu">// The fix — parallelStream()</span>
+<span class="add">val rates = candidates.parallelStream()
+    .map { c -> fxClient.getRate(
+        request.sourceCurrency,
+        request.targetCurrency, c)
+    }.toList()</span></div>
+      <p style="margin-top:8px;font-size:clamp(12px,.95vw,14px);color:var(--mu)">map is idiomatic Kotlin. Nothing suggests it's the problem. The staircase waterfall is the only evidence.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 21 — bug 1 before/after trace -->
+<section class="slide s-reveal">
+  <div class="pbanner">Part 3</div>
+  <div class="eyebrow">Bug 1 — the trace confirms the fix</div>
+  <div class="cols2" style="margin-top:10px;gap:28px;align-items:start">
+    <div>
+      <p class="label" style="color:var(--red);margin-bottom:8px">Before — sequential staircase</p>
+      <div class="wf">
+        <div class="wf-r"><div class="wf-l" style="color:var(--cp);font-size:clamp(11px,.88vw,13px)">pricing.calculate</div><div class="wf-t"><div class="wf-b" style="left:0;width:100%;background:rgba(13,90,90,.18);border:1px solid var(--cp)"></div></div><div class="wf-d">3100ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:14px;font-size:clamp(11px,.88vw,13px)">fx.call A</div><div class="wf-t"><div class="wf-b" style="left:0;width:33%;background:var(--cf)">A</div></div><div class="wf-d">960ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:14px;font-size:clamp(11px,.88vw,13px)">fx.call B</div><div class="wf-t"><div class="wf-b" style="left:33%;width:33%;background:var(--cf)">B</div></div><div class="wf-d">975ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:14px;font-size:clamp(11px,.88vw,13px)">fx.call C</div><div class="wf-t"><div class="wf-b" style="left:66%;width:33%;background:var(--cf)">C</div></div><div class="wf-d">970ms</div></div>
+      </div>
+      <p style="margin-top:6px;font-size:clamp(12px,.95vw,14px);color:var(--red)">Total: ~3100ms · 3 sequential spans</p>
+    </div>
+    <div>
+      <p class="label" style="color:var(--green-text);margin-bottom:8px">After — concurrent overlap</p>
+      <div class="wf">
+        <div class="wf-r"><div class="wf-l" style="color:var(--cp);font-size:clamp(11px,.88vw,13px)">pricing.calculate</div><div class="wf-t"><div class="wf-b" style="left:0;width:34%;background:rgba(13,90,90,.18);border:1px solid var(--cp)"></div></div><div class="wf-d">~1000ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:14px;font-size:clamp(11px,.88vw,13px)">fx.call A</div><div class="wf-t"><div class="wf-b" style="left:0;width:33%;background:var(--cf)">A</div></div><div class="wf-d">960ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:14px;font-size:clamp(11px,.88vw,13px)">fx.call B</div><div class="wf-t"><div class="wf-b" style="left:0;width:33%;background:var(--cf)">B</div></div><div class="wf-d">975ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:14px;font-size:clamp(11px,.88vw,13px)">fx.call C</div><div class="wf-t"><div class="wf-b" style="left:0;width:33%;background:var(--cf)">C</div></div><div class="wf-d">970ms</div></div>
+      </div>
+      <p style="margin-top:6px;font-size:clamp(12px,.95vw,14px);color:var(--green-text)">Total: ~1000ms · 3 overlapping spans</p>
+    </div>
+  </div>
+  <div style="margin-top:14px;padding:10px 16px;background:rgba(45,122,0,.06);border:1px solid rgba(45,122,0,.2);border-radius:8px">
+    <p style="font-size:clamp(13px,1.05vw,15px);color:var(--green-text)">Same span durations. Different positions. Parent shrinks by 2 seconds. The fix is visible in the trace before you look at a single metric. This is how you confirm the fix worked.</p>
+  </div>
+</section>
+
+<!-- 22 — bug 2 trace reveal -->
+<section class="slide s-reveal">
+  <div class="pbanner">Part 3</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <div class="eyebrow">Bug 2 — The trace reveals it immediately</div>
+      <h3 style="margin-bottom:10px">A staircase of identical spans under risk.score</h3>
+      <div class="wf">
+        <div class="wf-r"><div class="wf-l" style="color:var(--cr)">risk.score</div><div class="wf-t"><div class="wf-b" style="left:0;width:100%;background:rgba(138,111,0,.15);border:1px solid var(--cr)"></div></div><div class="wf-d">~85ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cs);padding-left:14px;font-size:clamp(10px,.8vw,12px)">screen [urgent]</div><div class="wf-t"><div class="wf-b" style="left:2%;width:10%;background:var(--cs);font-size:7px;color:#333"></div></div><div class="wf-d">10ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cs);padding-left:14px;font-size:clamp(10px,.8vw,12px)">screen [payment]</div><div class="wf-t"><div class="wf-b" style="left:12%;width:10%;background:var(--cs);font-size:7px;color:#333"></div></div><div class="wf-d">10ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--red);padding-left:14px;font-size:clamp(10px,.8vw,12px)">screen [] ← EMPTY</div><div class="wf-t"><div class="wf-b" style="left:22%;width:10%;background:rgba(192,57,43,.75);font-size:7px;color:#fff"></div></div><div class="wf-d">10ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--red);padding-left:14px;font-size:clamp(10px,.8vw,12px)">screen [urgent] ← DUP</div><div class="wf-t"><div class="wf-b" style="left:32%;width:10%;background:rgba(192,57,43,.75);font-size:7px;color:#fff"></div></div><div class="wf-d">10ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cs);padding-left:14px;font-size:clamp(10px,.8vw,12px)">screen [transfer]</div><div class="wf-t"><div class="wf-b" style="left:42%;width:10%;background:var(--cs);font-size:7px;color:#333"></div></div><div class="wf-d">10ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--red);padding-left:14px;font-size:clamp(10px,.8vw,12px)">screen [] ← EMPTY</div><div class="wf-t"><div class="wf-b" style="left:52%;width:10%;background:rgba(192,57,43,.75);font-size:7px;color:#fff"></div></div><div class="wf-d">10ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--red);padding-left:14px;font-size:clamp(10px,.8vw,12px)">screen [payment] ← DUP</div><div class="wf-t"><div class="wf-b" style="left:62%;width:10%;background:rgba(192,57,43,.75);font-size:7px;color:#fff"></div></div><div class="wf-d">10ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cs);padding-left:14px;font-size:clamp(10px,.8vw,12px)">screen [reference]</div><div class="wf-t"><div class="wf-b" style="left:72%;width:10%;background:var(--cs);font-size:7px;color:#333"></div></div><div class="wf-d">10ms</div></div>
+      </div>
+      <p style="margin-top:8px;font-size:clamp(12px,.95vw,14px);color:var(--mu)">Each call is 200 OK. Each takes 10ms. Nothing is wrong per call. The count and the term attributes are the evidence.</p>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:8px;color:var(--mu)">Why logs miss it entirely</p>
+      <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:12px">
+        <div class="log"><span class="g">200 OK</span> screening check ~10ms term=urgent</div>
+        <div class="log"><span class="g">200 OK</span> screening check ~10ms term=payment</div>
+        <div class="log"><span class="g">200 OK</span> screening check ~10ms term=</div>
+        <div class="log"><span class="g">200 OK</span> screening check ~10ms term=urgent</div>
+        <div class="log" style="color:var(--mu)">… 4 more identical lines</div>
+      </div>
+      <p style="font-size:clamp(13px,1.05vw,15px);color:var(--mu);margin-bottom:10px">To detect this from logs: grep, group by trace ID, count, compare. At production volume, for every request.</p>
+      <div style="padding:8px 12px;background:rgba(45,122,0,.06);border:1px solid rgba(45,122,0,.2);border-radius:8px">
+        <p style="font-size:clamp(13px,1.05vw,15px);color:var(--green-text)">In the trace: 8 siblings with 4 highlighted in red. Visible in 2 seconds. Click "Logs for this span" → filtered by trace_id AND span_id.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 23 — bug 2 code + fix -->
+<section class="slide s-reveal">
+  <div class="pbanner">Part 3</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <div class="eyebrow">Bug 2 — The code</div>
+      <h3 style="margin-bottom:10px">RiskController.kt:53 — no dedup, no blank filter</h3>
+      <div class="code" style="font-size:10.5px"><span class="mu">// "urgent payment, urgent transfer, payment reference"</span>
+<span class="bad">val terms = memo.split(",")
+    .flatMap { it.split(" ") }
+    .map { it.trim().lowercase() }
+    <span class="mu">// → ["urgent","payment","","urgent",</span>
+    <span class="mu">//    "transfer","","payment","reference"]</span>
+    <span class="mu">// → 8 iterations: 2 empty + 2 duplicates</span></span>
+
+terms.forEach { term ->
+    screeningClient.check(term, customerId)
+    <span class="mu">// ← runs 8 times, 4 of them wasteful</span>
+}</div>
+      <p style="margin-top:10px;font-size:clamp(13px,1.05vw,15px);color:var(--mu)">The code looks like correct per-term screening. Without the trace, you'd never know it ran 8 times when 4 were enough.</p>
+    </div>
+    <div>
+      <p class="label" style="margin-bottom:8px;color:var(--green-text)">The fix — two lines</p>
+      <div class="code" style="font-size:10.5px">val terms = memo.split(",")
+    .flatMap { it.split(" ") }
+    .map { it.trim().lowercase() }
+<span class="add">    .filter { it.isNotBlank() }
+    .distinct()</span>
+    <span class="mu">// → ["urgent","payment","transfer","reference"]</span>
+    <span class="mu">// → 4 calls: all distinct, all meaningful</span>
+
+terms.forEach { term ->
+    screeningClient.check(term, customerId)
+}</div>
+      <div style="margin-top:10px;padding:8px 12px;background:rgba(45,122,0,.06);border:1px solid rgba(45,122,0,.2);border-radius:8px">
+        <p style="font-size:clamp(13px,1.05vw,15px);color:var(--green-text)">After the fix: 4 sibling spans in the trace. The red duplicates disappear. Confirmed without reading a log.</p>
+      </div>
+      <div style="margin-top:8px;padding:8px 12px;background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.25);border-radius:8px">
+        <p style="font-size:clamp(12px,.95vw,14px);color:var(--red)">Trigger: <code>memo != null</code> + <code>targetCurrency = USD</code> + <code>amount ≥ 10000</code>. Standard traffic almost never sets memo — so this is rare in production, invisible without traces.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 24 — both bugs summary -->
+<section class="slide s-reveal">
+  <div class="pbanner">Part 3</div>
+  <div class="eyebrow">Both bugs — what they share</div>
+  <table class="tbl" style="margin-top:10px">
+    <thead><tr><th></th><th>Bug 1 — Sequential FX</th><th>Bug 2 — Screening fan-out</th></tr></thead>
+    <tbody>
+      <tr><td style="color:var(--off)">Error in logs</td><td style="color:var(--red)">None — all 200 OK</td><td style="color:var(--red)">None — all 200 OK, ~10ms each</td></tr>
+      <tr><td style="color:var(--off)">Visible in traces</td><td style="color:var(--green-text)">Yes — staircase timing</td><td style="color:var(--green-text)">Yes — N+1 siblings + term attribute</td></tr>
+      <tr><td style="color:var(--off)">Key attributes</td><td>pricing.strategy, route_candidate_count</td><td>risk.screening_terms_checked, screening.term</td></div></tr>
+      <tr><td style="color:var(--off)">Fix size</td><td>1 line changed (map → parallelStream)</td><td>2 lines added (filter + distinct)</td></tr>
+      <tr><td style="color:var(--off)">Fix confirmed by</td><td style="color:var(--green-text)">Overlapping fx.call spans</td><td style="color:var(--green-text)">Reduced sibling count in waterfall</td></tr>
+    </tbody>
+  </table>
+  <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="padding:10px 14px;background:rgba(45,122,0,.06);border:1px solid rgba(45,122,0,.2);border-radius:8px">
+      <p style="font-size:clamp(13px,1.05vw,15px);color:var(--green-text)">The trace structure is the evidence. Not the log content.</p>
+    </div>
+    <div style="padding:10px 14px;background:rgba(13,90,90,.06);border:1px solid rgba(13,90,90,.2);border-radius:8px">
+      <p style="font-size:clamp(13px,1.05vw,15px);color:var(--b)">The fix changes the trace. That's how you know it worked.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 25 — key takeaways -->
+<section class="slide">
+  <div class="eyebrow">Takeaways</div>
+  <div class="split" style="align-items:start">
+    <div>
+      <h2 style="margin-bottom:14px">What to remember</h2>
+      <div style="display:flex;flex-direction:column;gap:9px;max-width:52ch">
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green-text);font-weight:800;font-size:clamp(13px,1.05vw,16px);min-width:16px;margin-top:1px">1</span><p style="font-size:clamp(13px,1.05vw,16px);margin:0">Traces assemble the execution structure automatically. You read it, you don't reconstruct it from logs.</p></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green-text);font-weight:800;font-size:clamp(13px,1.05vw,16px);min-width:16px;margin-top:1px">2</span><p style="font-size:clamp(13px,1.05vw,16px);margin:0">The waterfall reveals timing: sequential vs concurrent, N+1. Impossible to see in logs.</p></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green-text);font-weight:800;font-size:clamp(13px,1.05vw,16px);min-width:16px;margin-top:1px">3</span><p style="font-size:clamp(13px,1.05vw,16px);margin:0">Attributes identify which input triggered it. Low cardinality → metrics. High cardinality → investigation.</p></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green-text);font-weight:800;font-size:clamp(13px,1.05vw,16px);min-width:16px;margin-top:1px">4</span><p style="font-size:clamp(13px,1.05vw,16px);margin:0">Use tail-based sampling in production. Keep errors and slow traces. Discard healthy fast ones.</p></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--green-text);font-weight:800;font-size:clamp(13px,1.05vw,16px);min-width:16px;margin-top:1px">5</span><p style="font-size:clamp(13px,1.05vw,16px);margin:0">The fix changes the trace shape. That's how you confirm it worked — before a metric trend is visible.</p></div>
+      </div>
+    </div>
+    <!-- mini final waterfall -->
+    <div>
+      <p class="label" style="margin-bottom:8px">The complete story in one trace</p>
+      <div class="wf" style="margin-bottom:12px">
+        <div class="wf-r"><div class="wf-l" style="color:var(--ct)">POST /transfers</div><div class="wf-t"><div class="wf-b" style="left:0;width:100%;background:rgba(45,122,0,.15);border:1px solid var(--ct)"></div></div><div class="wf-d">3100ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--mu);padding-left:10px;font-size:clamp(10px,.8vw,12px)">auth</div><div class="wf-t"><div class="wf-b" style="left:0;width:3%;background:rgba(255,255,255,.2)"></div></div><div class="wf-d">18ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cr);padding-left:10px;font-size:clamp(10px,.8vw,12px)">risk.score</div><div class="wf-t"><div class="wf-b" style="left:4%;width:4%;background:var(--cr)"></div></div><div class="wf-d">90ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cp);padding-left:10px;font-size:clamp(10px,.8vw,12px)">pricing.calculate</div><div class="wf-t"><div class="wf-b" style="left:9%;width:90%;background:rgba(13,90,90,.2);border:1px solid var(--cp)"></div></div><div class="wf-d">2950ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:22px;font-size:clamp(10px,.8vw,12px)">fx.call A</div><div class="wf-t"><div class="wf-b" style="left:9%;width:30%;background:var(--cf)"></div></div><div class="wf-d">960ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:22px;font-size:clamp(10px,.8vw,12px)">fx.call B</div><div class="wf-t"><div class="wf-b" style="left:39%;width:30%;background:var(--cf)"></div></div><div class="wf-d">975ms</div></div>
+        <div class="wf-r"><div class="wf-l" style="color:var(--cf);padding-left:22px;font-size:clamp(10px,.8vw,12px)">fx.call C</div><div class="wf-t"><div class="wf-b" style="left:69%;width:30%;background:var(--cf)"></div></div><div class="wf-d">970ms</div></div>
+      </div>
+      <div style="padding:8px 12px;background:rgba(45,122,0,.06);border:1px solid rgba(45,122,0,.2);border-radius:8px">
+        <p style="font-size:clamp(12px,.95vw,14px);color:var(--mu)">Alert → logs showed nothing → trace found the staircase → attributes pinned EUR→BRL MULTI_ROUTE → code explained the sequential map → fix collapsed the waterfall.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 26 — thank you -->
+<section class="slide s-sec">
+  <!-- ghost waterfall in background -->
+  <svg style="position:absolute;bottom:0;right:0;width:70%;height:60%;opacity:.06;pointer-events:none" viewBox="0 0 600 200" preserveAspectRatio="xMidYMid slice">
+    <rect x="0"   y="20" width="600" height="14" rx="3" fill="#163300"/>
+    <rect x="80"  y="44" width="520" height="14" rx="3" fill="#163300"/>
+    <rect x="80"  y="44" width="170" height="14" rx="3" fill="#163300"/>
+    <rect x="80"  y="44" width="170" height="14" rx="3" fill="#163300"/>
+    <rect x="258" y="68" width="170" height="14" rx="3" fill="#163300"/>
+    <rect x="436" y="92" width="164" height="14" rx="3" fill="#163300"/>
+  </svg>
+  <div class="eyebrow" style="color:rgba(159,232,112,.6)">Wise Engineering · Workshop</div>
+  <h1 style="color:#9FE870;font-size:clamp(52px,6vw,100px);margin-top:8px">Thank you.</h1>
+  <p style="margin-top:16px;color:rgba(255,255,255,.85);max-width:44ch;font-size:clamp(14px,1.2vw,18px)">Follow one request. Read the waterfall. Let the trace tell you what the logs can't.</p>
+  <div style="margin-top:32px;display:flex;flex-direction:column;gap:6px">
+    <p style="font-family:var(--mono);font-size:clamp(11px,.9vw,14px);color:rgba(255,255,255,.5)">http://localhost:3000  — Grafana</p>
+    <p style="font-family:var(--mono);font-size:clamp(11px,.9vw,14px);color:rgba(255,255,255,.5)">http://localhost:8080  — API</p>
+  </div>
+</section>
+
+</div>
+<div class="progress" id="prog"></div>
+<div class="counter" id="cnt">1 / 39</div>
+
+<script>
+const slides = [...document.querySelectorAll('.slide')];
+const prog = document.getElementById('prog');
+const cnt  = document.getElementById('cnt');
+let cur = 0;
+
+function goTo(i) {
+  cur = Math.max(0, Math.min(i, slides.length - 1));
+  slides[cur].scrollIntoView({behavior:'smooth'});
+  update();
+}
+function update() {
+  const p = ((cur+1)/slides.length*100).toFixed(1);
+  prog.style.width = p + '%';
+  cnt.textContent  = (cur+1) + ' / ' + slides.length;
+  slides.forEach((s,i) => s.classList.toggle('visible', i === cur));
+}
+
+document.addEventListener('keydown', e => {
+  if(['ArrowRight','ArrowDown',' '].includes(e.key)){e.preventDefault();goTo(cur+1)}
+  if(['ArrowLeft','ArrowUp'].includes(e.key)){e.preventDefault();goTo(cur-1)}
+  if(e.key==='Home'){e.preventDefault();goTo(0)}
+  if(e.key==='End'){e.preventDefault();goTo(slides.length-1)}
+});
+
+let ty=0;
+const deck=document.getElementById('deck');
+deck.addEventListener('touchstart',e=>{ty=e.changedTouches[0].screenY},{passive:true});
+deck.addEventListener('touchend',e=>{
+  const d=ty-e.changedTouches[0].screenY;
+  if(Math.abs(d)>40) goTo(d>0?cur+1:cur-1);
+},{passive:true});
+
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      cur=[...slides].indexOf(e.target);
+      e.target.classList.add('visible');
+      update();
+    }
+  });
+},{threshold:0.6});
+slides.forEach(s=>obs.observe(s));
+goTo(0);
+</script>
+</body>
+</html>

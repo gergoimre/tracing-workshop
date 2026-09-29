@@ -4,23 +4,16 @@ enum class PricingStrategy { SINGLE_ROUTE, MULTI_ROUTE }
 
 object StrategyRules {
 
-    private data class RuleKey(
-        val sourceCurrency: String,
-        val targetCurrency: String,
-        val transferType: String,
-        val amountBucket: String
-    )
-
-    private val rules: Map<RuleKey, PricingStrategy> = mapOf(
-        RuleKey("EUR", "BRL", "BANK_TRANSFER", "10000_PLUS") to PricingStrategy.MULTI_ROUTE
-    )
-
     fun resolve(
         sourceCurrency: String,
         targetCurrency: String,
         transferType: String,
-        amountBucket: String
+        amount: Long
     ): PricingStrategy =
-        rules[RuleKey(sourceCurrency, targetCurrency, transferType, amountBucket)]
-            ?: PricingStrategy.SINGLE_ROUTE
+        if (sourceCurrency == "EUR" &&
+            targetCurrency == "BRL" &&
+            transferType == "BANK_TRANSFER" &&
+            amount >= 10_000
+        ) PricingStrategy.MULTI_ROUTE
+        else PricingStrategy.SINGLE_ROUTE
 }

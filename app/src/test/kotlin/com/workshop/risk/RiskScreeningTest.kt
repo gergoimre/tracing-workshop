@@ -27,11 +27,11 @@ class RiskScreeningTest {
         val request = RiskScoreRequest(
             customerId = "cust-123",
             targetCurrency = "USD",
-            amountBucket = "10000_PLUS",
+            amount = 12000L,
             memo = "urgent, urgent, payment"
         )
 
-        controller.scoreRequest(request)
+        controller.score(request)
 
         // After the fix: deduplicated unique non-blank terms — "urgent" and "payment" only
         verify(exactly = 2) { screeningClient.check(any(), any()) }

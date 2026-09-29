@@ -15,7 +15,6 @@ data class PrepareTransferResponse(
     val targetCurrency: String,
     val transferType: String,
     val amount: Long,
-    val amountBucket: String,
     val recipientId: String,
     val pricingStrategy: String,
     val fxRate: Double,
@@ -79,7 +78,7 @@ data class PricingRequest(
     val sourceCurrency: String,
     val targetCurrency: String,
     val transferType: String,
-    val amountBucket: String
+    val amount: Long
 )
 
 data class PricingResponse(
@@ -112,7 +111,7 @@ data class SessionResponse(
 data class RiskScoreRequest(
     val customerId: String,
     val targetCurrency: String,
-    val amountBucket: String,
+    val amount: Long,
     val memo: String?
 )
 

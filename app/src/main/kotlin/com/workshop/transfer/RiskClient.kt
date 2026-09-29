@@ -10,12 +10,12 @@ import org.springframework.web.client.body
 @Component
 class RiskClient(@Qualifier("riskRestClient") private val restClient: RestClient) {
 
-    fun score(customerId: String, targetCurrency: String, amountBucket: String, memo: String?): RiskScoreResponse =
+    fun score(customerId: String, targetCurrency: String, amount: Long, memo: String?): RiskScoreResponse =
         restClient.post().uri("/risk/score")
             .body(RiskScoreRequest(
                 customerId = customerId,
                 targetCurrency = targetCurrency,
-                amountBucket = amountBucket,
+                amount = amount,
                 memo = memo
             ))
             .retrieve().body<RiskScoreResponse>()!!

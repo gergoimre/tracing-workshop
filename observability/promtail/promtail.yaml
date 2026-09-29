@@ -30,14 +30,16 @@ scrape_configs:
             level: level
             message: message
             trace_id: trace_id
+            span_id: span_id
             service_name: service_name
-      # Promote only low-cardinality fields as Loki labels.
-      # trace_id is included so Grafana trace-to-logs correlation works.
-      # span_id stays in the log body — use |= "span_id" to search it.
-      # High-cardinality span_id as a label would create thousands of streams.
+      # Promote fields as Loki labels.
+      # trace_id and span_id are both indexed to enable per-span log correlation
+      # in Grafana: clicking "Logs for this span" on any span in Tempo returns
+      # only that span's log lines.
       - labels:
           level:
           trace_id:
+          span_id:
           service_name:
       # Replace the raw JSON line with just the human-readable message.
       # Non-JSON lines (framework startup logs) produce an empty message

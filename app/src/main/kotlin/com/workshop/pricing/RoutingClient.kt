@@ -13,7 +13,7 @@ class RoutingClient(@Qualifier("supportRestClient") private val restClient: Rest
         sourceCurrency: String,
         targetCurrency: String,
         transferType: String,
-        amountBucket: String
+        amount: Long
     ): RoutingCandidatesResponse =
         restClient.get()
             .uri { builder ->
@@ -21,7 +21,7 @@ class RoutingClient(@Qualifier("supportRestClient") private val restClient: Rest
                     .queryParam("sourceCurrency", sourceCurrency)
                     .queryParam("targetCurrency", targetCurrency)
                     .queryParam("transferType", transferType)
-                    .queryParam("amountBucket", amountBucket)
+                    .queryParam("amount", amount)
                     .build()
             }
             .retrieve()

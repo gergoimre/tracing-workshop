@@ -4,8 +4,8 @@ import com.workshop.common.LedgerCommitRequest
 import com.workshop.common.LedgerCommitResponse
 import com.workshop.common.LedgerReserveRequest
 import com.workshop.common.LedgerReserveResponse
+import io.micrometer.observation.annotation.Observed
 import io.opentelemetry.api.trace.Span
-import io.opentelemetry.instrumentation.annotations.WithSpan
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.PostMapping
@@ -22,10 +22,8 @@ class LedgerController(private val accountsClient: AccountsClient) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @PostMapping("/reserve")
-    fun reserve(@RequestBody request: LedgerReserveRequest): LedgerReserveResponse = reserveFunds(request)
-
-    @WithSpan("ledger.reserve")
-    fun reserveFunds(request: LedgerReserveRequest): LedgerReserveResponse {
+    @Observed(name = "ledger.reserve")
+    fun reserve(@RequestBody request: LedgerReserveRequest): LedgerReserveResponse {
         Thread.sleep(18)
 
         val accountId = "acc-${request.sourceCurrency.lowercase()}-primary"
@@ -49,10 +47,8 @@ class LedgerController(private val accountsClient: AccountsClient) {
     }
 
     @PostMapping("/commit")
-    fun commit(@RequestBody request: LedgerCommitRequest): LedgerCommitResponse = commitFunds(request)
-
-    @WithSpan("ledger.commit")
-    fun commitFunds(request: LedgerCommitRequest): LedgerCommitResponse {
+    @Observed(name = "ledger.commit")
+    fun commit(@RequestBody request: LedgerCommitRequest): LedgerCommitResponse {
         Thread.sleep(25)
 
         val accountId = "acc-${request.sourceCurrency.lowercase()}-primary"

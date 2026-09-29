@@ -5,14 +5,13 @@ x-app-build: &app-build
   context: .
   dockerfile: docker/Dockerfile
 
-# ── Shared OTel environment ────────────────────────────────────────────────────
+# ── Shared tracing environment ─────────────────────────────────────────────────
+# Micrometer Tracing reads the OTLP endpoint from application.yml
+# (management.otlp.tracing.endpoint), which itself interpolates
+# OTEL_EXPORTER_OTLP_ENDPOINT. OTEL_SERVICE_NAME sets spring.application.name
+# so the service name appears correctly in Tempo.
 x-otel-env: &otel-env
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-  OTEL_METRICS_EXPORTER: none
-  OTEL_LOGS_EXPORTER: none
-  OTEL_TRACES_SAMPLER: always_on
-  OTEL_PROPAGATORS: tracecontext,baggage
 
 services:
 
@@ -77,6 +76,8 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
       GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+      GF_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/slow-traces.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/slow-traces.json
     volumes:
       - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
       - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro

@@ -26,21 +26,21 @@ class TransferController(
 
     @PostMapping("/prepare")
     fun prepare(@RequestBody request: PrepareTransferRequest): PrepareTransferResponse {
-        val bucket = amountBucket(request.amount)
         val sessionToken = "sess-${request.recipientId}-token"
 
         Span.current().apply {
             setAttribute("transfer.source_currency", request.sourceCurrency)
             setAttribute("transfer.target_currency", request.targetCurrency)
             setAttribute("transfer.type", request.transferType)
-            setAttribute("transfer.amount_bucket", bucket)
+            setAttribute("transfer.amount", request.amount)
             setAttribute("transfer.recipient_id", request.recipientId)
             setAttribute("transfer.has_memo", request.memo != null)
+            if (request.memo != null) setAttribute("transfer.memo", request.memo)
         }
 
-        log.info("Preparing transfer: {}→{} {} recipient={} amount_bucket={} memo={}",
+        log.info("Preparing transfer: {}→{} {} recipient={} amount={} memo={}",
             request.sourceCurrency, request.targetCurrency, request.transferType,
-            request.recipientId, bucket, request.memo != null)
+            request.recipientId, request.amount, request.memo != null)
 
         val customerId = "cust-${UUID.randomUUID().toString().take(8)}"
 
@@ -59,13 +59,13 @@ class TransferController(
         val risk = riskClient.score(
             customerId = customer.customerId,
             targetCurrency = request.targetCurrency,
-            amountBucket = bucket,
+            amount = request.amount,
             memo = request.memo
         )
         log.info("Risk scored: score={} band={}", risk.score, risk.band)
 
         val pricing = pricingClient.calculate(
-            PricingRequest(request.sourceCurrency, request.targetCurrency, request.transferType, bucket)
+            PricingRequest(request.sourceCurrency, request.targetCurrency, request.transferType, request.amount)
         )
         log.info("Pricing complete: strategy={} rate={}", pricing.strategy, pricing.bestRate)
 
@@ -83,7 +83,7 @@ class TransferController(
             eventType = "TRANSFER_PREPARED",
             entityId = transferId,
             actorId = customer.customerId,
-            payload = """{"sourceCurrency":"${request.sourceCurrency}","targetCurrency":"${request.targetCurrency}","amountBucket":"$bucket"}"""
+            payload = """{"sourceCurrency":"${request.sourceCurrency}","targetCurrency":"${request.targetCurrency}","amount":${request.amount}}"""
         )
         log.info("Transfer prepared and audited: id={}", transferId)
 
@@ -113,7 +113,6 @@ class TransferController(
             targetCurrency = request.targetCurrency,
             transferType = request.transferType,
             amount = request.amount,
-            amountBucket = bucket,
             recipientId = request.recipientId,
             pricingStrategy = pricing.strategy,
             fxRate = pricing.bestRate

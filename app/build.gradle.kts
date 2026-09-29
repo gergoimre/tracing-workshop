@@ -20,12 +20,6 @@ kotlin {
     }
 }
 
-dependencyManagement {
-    imports {
-        mavenBom("io.opentelemetry:opentelemetry-bom:1.43.0")
-    }
-}
-
 dependencies {
     // Spring MVC + virtual threads (Java 21) — blocking code, no coroutines needed
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -33,10 +27,14 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
-    // OpenTelemetry API only — the Java agent provides the SDK at runtime
-    implementation("io.opentelemetry:opentelemetry-api")
-    // @WithSpan / @SpanAttribute — processed by the Java agent; zero boilerplate
-    implementation("io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.8.0")
+    // Micrometer Tracing — Spring Boot's first-class tracing abstraction.
+    // The bridge wires Micrometer's Observation API to the OTel SDK under the hood.
+    // No Java agent required; everything is managed as normal Spring Boot auto-config.
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    // OTLP exporter — sends spans to the OTel Collector over HTTP/protobuf
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+    // Spring AOP — required for @Observed to create spans via ObservedAspect
+    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     // Structured JSON logging — emits trace_id/span_id in every log line
     implementation("net.logstash.logback:logstash-logback-encoder:8.0")

@@ -1,7 +1,8 @@
 apiVersion: 1
 
 datasources:
-  - name: Tempo
+  - uid: tempo-workshop
+    name: Tempo
     type: tempo
     access: proxy
     url: http://tempo:3200
@@ -23,9 +24,9 @@ datasources:
         spanStartTimeShift: -1m
         spanEndTimeShift: 1m
         filterByTraceID: false
-        filterBySpanID: false
+        filterBySpanID: true
         customQuery: true
-        query: '{$${__tags}, trace_id="$${__trace.traceId}"}'
+        query: '{$${__tags}, trace_id="$${__trace.traceId}", span_id="$${__span.spanId}"}'
         tags:
           - key: service.name
             value: service_name
@@ -42,5 +43,5 @@ datasources:
         - name: TraceID
           matcherRegex: '"trace_id":"([a-f0-9]+)"'
           url: '$${__value.raw}'
-          datasourceUid: P214B5B846CF3925F
+          datasourceUid: tempo-workshop
           urlDisplayLabel: Open trace in Tempo
