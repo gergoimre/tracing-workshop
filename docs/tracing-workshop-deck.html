@@ -546,48 +546,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'IBM Plex Sans',-ap
   </div>
 </section>
 
-<!-- 11 — p99, HTTP 200, exemplars -->
-<section class="slide">
-  <div class="pbanner">Part 1</div>
-  <div class="split" style="align-items:start">
-    <div>
-      <div class="eyebrow">Two traps that traces solve</div>
-      <h2>A successful call<br>can still be <span style="color:var(--red)">slow</span> or <span style="color:var(--red)">wrong.</span></h2>
-      <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
-        <div style="padding:12px 16px;background:var(--bg2);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
-          <p style="font-weight:700;color:var(--forest);margin-bottom:4px">Mean latency hides tail pain</p>
-          <p>Cloudflare found a 30–40% p99 improvement after a WAF change. Mean was nearly unchanged — no alert fired. <em>"The 99th percentile is more relevant as a regular page load will likely hit that case at some point."</em> A page with 70 requests hits p99 on at least one of them. <span style="color:var(--mu)">Cloudflare Engineering, 2020</span></p>
-        </div>
-        <div style="padding:12px 16px;background:var(--bg2);border-left:3px solid var(--b);border-radius:0 var(--r) var(--r) 0">
-          <p style="font-weight:700;color:var(--forest);margin-bottom:4px">HTTP 200 hides application errors</p>
-          <p>GraphQL returns HTTP 200 for partial failures. A financial services team had a gateway generating 3,000–4,000 spans per request. HTTP showed all-green. The trace showed exactly which subgraph failed. <em>"GraphQL will report HTTP 200, but the trace will show the error and where."</em> <span style="color:var(--mu)">OTel End-User Q&A, 2023</span></p>
-        </div>
-      </div>
-    </div>
-    <div>
-      <p class="label" style="margin-bottom:10px">From p99 alert to root cause — in four steps</p>
-      <div style="display:flex;flex-direction:column;gap:7px">
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--bg2);border-radius:8px">
-          <span style="background:var(--forest);color:#9FE870;font-weight:700;font-size:11px;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</span>
-          <p style="margin:0">Metric alert fires: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">p99 > 2s</code> on <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">POST /orders</code></p>
-        </div>
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--bg2);border-radius:8px">
-          <span style="background:var(--forest);color:#9FE870;font-weight:700;font-size:11px;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</span>
-          <p style="margin:0">OTel Exemplar links the p99 metric bucket directly to a trace ID — one click in Grafana</p>
-        </div>
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--bg2);border-radius:8px">
-          <span style="background:var(--forest);color:#9FE870;font-weight:700;font-size:11px;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</span>
-          <p style="margin:0">Waterfall: <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">inventory.check</code> is 1.9s — attribute shows <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">warehouse=APAC qty=0</code></p>
-        </div>
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:rgba(26,92,0,.06);border:1px solid rgba(26,92,0,.18);border-radius:8px">
-          <span style="background:var(--green-text);color:#fff;font-weight:700;font-size:11px;min-width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">✓</span>
-          <p style="margin:0;color:var(--green-text)">Root cause found. No grep, no guessing, no log correlation.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- 12 — sampling -->
 <section class="slide s-sec">
   <div class="pbanner">Part 1</div>
@@ -665,74 +623,38 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'IBM Plex Sans',-ap
 <section class="slide">
   <div class="pbanner">Part 1</div>
   <div class="eyebrow">Spring Boot · Micrometer Observation</div>
-  <h2>One <code style="font-size:clamp(16px,1.6vw,26px);background:var(--bg2);padding:2px 8px;border-radius:6px">@Observed</code> gives you<br>a metric <span class="g">and</span> a span <span class="g">for free.</span></h2>
-  <div class="cols2" style="margin-top:16px;gap:clamp(16px,2.5vw,36px);align-items:start">
+  <h2>One annotation.<br>A metric <span class="g">and</span> a span <span class="g">at the same time.</span></h2>
+  <div class="cols2" style="margin-top:14px;gap:clamp(20px,3vw,48px);align-items:start">
     <div>
-      <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">
+      <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Annotate any Spring bean method</span>
 <span class="g">@Observed</span>(name = <span class="pk" style="color:var(--pk)">"fx.call"</span>)
 fun getRate(
-  <span class="g">@ObservationKeyValue</span>(<span class="pk" style="color:var(--pk)">"route.type"</span>) routeType: String, ...
+  <span class="g">@ObservationKeyValue</span>(<span class="pk" style="color:var(--pk)">"route.type"</span>) routeType: String,
+  ...
 ): FxRateResponse {
-  Span.current().apply {               <span class="mu">// enriches AFTER span starts</span>
-    setAttribute(<span class="pk" style="color:var(--pk)">"fx.source_currency"</span>, sourceCurrency) <span class="mu">// span only</span>
-    setAttribute(<span class="pk" style="color:var(--pk)">"fx.rate"</span>,            response.rate)   <span class="mu">// span only</span>
+
+  <span class="mu">// Enrich the span with values from inside the method</span>
+  Span.current().apply {
+    setAttribute(<span class="pk" style="color:var(--pk)">"fx.source_currency"</span>, sourceCurrency)
+    setAttribute(<span class="pk" style="color:var(--pk)">"fx.rate"</span>, response.rate)
   }
-  <span class="mu">// thrown exception → auto ERROR status + timer tag error=ExClass</span>
 }</div>
-      <div style="margin-top:8px;padding:7px 12px;background:rgba(26,92,0,.06);border:1px solid rgba(26,92,0,.18);border-radius:7px">
-        <p><strong style="color:var(--green-text)">Thrown exceptions are automatic.</strong> <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> catches any throw, calls <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">observation.error(ex)</code>, sets span status <strong>ERROR</strong>, and tags the timer <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">error=ExceptionClassName</code>. You only set status manually for business rejections that return normally (e.g. a declined payment that doesn't throw).</p>
-      </div>
+      <div class="code" style="margin-top:10px;font-size:clamp(10px,.82vw,13px)"><span class="mu">// One config bean enables @Observed across all Spring beans</span>
+@Bean
+fun observedAspect(r: <span class="b">ObservationRegistry</span>) = <span class="g">ObservedAspect</span>(r)</div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <!-- layer stack — tightened -->
-      <p class="label" style="margin-bottom:5px">The stack in this project</p>
-      <div style="display:flex;flex-direction:column;gap:3px">
-        <div style="padding:7px 12px;background:rgba(26,92,0,.08);border:1px solid rgba(26,92,0,.2);border-radius:7px">
-          <p style="font-weight:700;color:var(--green-text);margin-bottom:1px">1. Micrometer <span style="font-weight:400;color:var(--mu)">— what you write</span></p>
-          <p><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> + <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">ObservedAspect</code>. Spring Boot auto-configures the registry.</p>
-        </div>
-        <div style="padding:7px 12px;background:rgba(10,100,100,.08);border:1px solid rgba(10,100,100,.2);border-radius:7px">
-          <p style="font-weight:700;color:var(--b);margin-bottom:1px">2. OTel SDK <span style="font-weight:400;color:var(--mu)">— runs under the hood via bridge</span></p>
-          <p>You never call it to <em>create</em> spans — only to <em>enrich</em> them: <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current().setAttribute(...)</code></p>
-        </div>
-        <div style="padding:7px 12px;background:rgba(168,78,0,.08);border:1px solid rgba(168,78,0,.2);border-radius:7px">
-          <p style="font-weight:700;color:var(--o);margin-bottom:1px">3. OTel Collector → Tempo → Grafana</p>
-          <p>Receives OTLP, stores spans, powers TraceQL queries.</p>
-        </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="card" style="border-color:rgba(26,92,0,.25)">
+        <p style="font-weight:700;color:var(--green-text);margin-bottom:5px">One annotation → metric + span</p>
+        <p><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> fires a metrics handler (creates a timer: <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">fx.call.duration</code>) and a tracing handler (creates a span) simultaneously. In Grafana, an exemplar on the metric links directly to the trace that caused a p99 spike.</p>
       </div>
-
-      <!-- metrics ↔ tracing connection -->
-      <p class="label" style="margin-bottom:5px;margin-top:4px">How metrics and tracing connect</p>
-      <div style="padding:10px 14px;background:var(--bg2);border-radius:var(--r);border:1px solid var(--bdr)">
-        <p style="margin-bottom:7px"><strong style="color:var(--forest)">One <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> fires two handlers simultaneously:</strong></p>
-        <div style="display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:clamp(9px,.78vw,11.5px)">
-          <div style="display:flex;gap:8px;align-items:center">
-            <span style="color:var(--mu)">@Observed</span>
-            <span style="color:var(--mu)">─┬─→</span>
-            <span style="padding:2px 8px;background:rgba(26,92,0,.1);border-radius:4px;color:var(--green-text)">Timer fx.call.duration</span>
-            <span style="color:var(--mu);font-size:10px">p50/p95/p99, count</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;padding-left:60px">
-            <span style="color:var(--mu)">│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↑</span>
-            <span style="color:var(--mu);font-size:10px">exemplar: stores a trace_id on the metric data point</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <span style="color:var(--mu)">──────</span>
-            <span style="color:var(--mu)">└─→</span>
-            <span style="padding:2px 8px;background:rgba(10,100,100,.1);border-radius:4px;color:var(--b)">Span "get fx rate"</span>
-            <span style="color:var(--mu);font-size:10px">your setAttribute() values</span>
-          </div>
-        </div>
-        <p style="margin-top:8px;color:var(--mu)">In Grafana: see a p99 spike on the metric chart → click the exemplar dot → jumps to the exact trace that caused it.</p>
+      <div class="card" style="border-color:rgba(10,100,100,.25)">
+        <p style="font-weight:700;color:var(--b);margin-bottom:5px">Micrometer bridges to OTel — not the other way around</p>
+        <p><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> is Micrometer. The bridge (<code style="background:var(--bg3);padding:1px 4px;border-radius:3px">micrometer-tracing-bridge-otel</code>) translates it to an OTel span under the hood. <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current()</code> enriches that span via the OTel API — never creates one.</p>
       </div>
-
-      <!-- cardinality note -->
-      <div style="padding:7px 12px;background:rgba(168,78,0,.06);border:1px solid rgba(168,78,0,.18);border-radius:7px">
-        <p><strong style="color:var(--o)">Why does cardinality matter?</strong> As a metric label, a high-cardinality value (like <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">fx.rate=5.3842</code>) creates a new time series per unique value — Prometheus explodes. In a trace, high cardinality is free. So: debug values → span only. Dashboard/alert values → keep them low-cardinality.</p>
-      </div>
-
-      <div style="padding:6px 12px;background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.2);border-radius:7px">
-        <p style="color:var(--red)">Never: PII · secrets · tokens · unbounded free text</p>
+      <div class="card" style="border-color:rgba(168,78,0,.25)">
+        <p style="font-weight:700;color:var(--o);margin-bottom:5px">Errors are automatic. PII is your responsibility.</p>
+        <p>A thrown exception auto-sets span status to ERROR and tags the timer <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">error=ExceptionClass</code>. Never put PII, secrets, or high-cardinality IDs in metric labels — trace attributes are fine.</p>
       </div>
     </div>
   </div>
@@ -851,11 +773,11 @@ span.addLink(SpanContext.create(
 <span class="b">server.address</span>            <span class="mu">// not "targetHost"</span></div>
       <p class="label" style="color:var(--o);margin-bottom:8px;margin-top:12px">Custom domain attributes — when OTel doesn't cover it</p>
       <div class="code" style="font-size:clamp(10px,.82vw,13px)"><span class="mu">// Dot-namespaced, lowercase, snake_case words</span>
-<span class="o">transfer.id</span>                   <span class="mu">// high-cardinality</span>
-<span class="o">transfer.target_currency</span>      <span class="mu">// low-cardinality</span>
-<span class="o">pricing.strategy</span>              <span class="mu">// low-cardinality</span>
-<span class="o">pricing.route_candidate_count</span>  <span class="mu">// low-cardinality</span>
-<span class="o">fx.provider</span>                   <span class="mu">// low-cardinality</span></div>
+<span class="mu">com.wise.</span><span style="color:var(--ct)">transfer</span>.<span class="b">id</span>                <span class="mu">// high-cardinality  → traces only</span>
+<span class="mu">com.wise.</span><span style="color:var(--ct)">transfer</span>.<span class="b">target_currency</span>   <span class="mu">// low-cardinality   → metrics + traces</span>
+<span class="mu">com.wise.</span><span style="color:var(--cp)">pricing</span>.<span class="b">strategy</span>            <span class="mu">// low-cardinality   → metrics + traces</span>
+<span class="mu">com.wise.</span><span style="color:var(--cp)">pricing</span>.<span class="b">route_candidate_count</span> <span class="mu">// low-cardinality</span>
+<span class="mu">com.wise.</span><span style="color:var(--cf)">fx</span>.<span class="b">provider</span>                 <span class="mu">// low-cardinality   → metrics + traces</span></div>
     </div>
     <div>
       <p class="label" style="margin-bottom:10px">The naming rules (from the OTel naming spec)</p>
@@ -900,35 +822,35 @@ span.addLink(SpanContext.create(
 <!-- 21 — dos: instrument well -->
 <section class="slide">
   <div class="pbanner">Part 1</div>
-  <div class="eyebrow">What to do</div>
-  <h2>Instrument meaningful boundaries.<br>Keep everything <span class="g">low-noise.</span></h2>
-  <div class="cols2" style="margin-top:16px;gap:14px;align-items:start">
+  <div class="eyebrow">Dos</div>
+  <h2>Instrument operations,<br>not <span class="g">implementation details.</span></h2>
+  <div class="cols2" style="margin-top:18px;gap:14px;align-items:start">
     <div style="display:flex;flex-direction:column;gap:8px">
-      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Instrument at meaningful operation boundaries</p>
-        <p>Service calls, DB queries, business operations — anything that would appear in a sequence diagram for your domain. Not every function.</p>
+      <div style="padding:10px 16px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:2px">Span meaningful boundaries</p>
+        <p>Service calls, DB queries, business operations. Anything in a sequence diagram. Not every function.</p>
       </div>
-      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Add business context as attributes</p>
-        <p>Span name alone rarely tells you which input triggered the problem. Attributes like <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">pricing.strategy</code> and <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">transfer.amount</code> are what let you find the affected requests.</p>
+      <div style="padding:10px 16px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:2px">Add business context as attributes</p>
+        <p>The span name tells you what happened. Attributes tell you <em>which input</em> triggered it.</p>
       </div>
-      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Thrown exceptions set ERROR status automatically</p>
-        <p><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code> catches any throw and calls <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">observation.error(ex)</code> — span status becomes ERROR, timer is tagged <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">error=ExceptionClass</code>. You only need to set it <em>manually</em> for business rejections that return normally without throwing (e.g. a declined payment returning a result object). Use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current().setStatus(StatusCode.ERROR, "reason")</code> for those.</p>
+      <div style="padding:10px 16px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:2px">Use OTel semantic conventions first</p>
+        <p><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">http.response.status_code</code>, not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">responseCode</code>. Standard names work across every backend.</p>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@ObservationKeyValue</code> on parameters for start-time values</p>
-        <p>With <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@Observed</code>, the span already exists before your method body runs — you can't add attributes "at creation" from inside the body. Instead, annotate method <strong>parameters</strong> with <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@ObservationKeyValue("key")</code>: those values are captured at span start and can become metric tags and influence tail samplers. Values computed inside the body via <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current().setAttribute(...)</code> enrich the span only — which is fine for tracing, but they miss the timer and the sampler.</p>
+      <div style="padding:10px 16px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:2px">Set ERROR status for business rejections</p>
+        <p>Thrown exceptions are automatic. Non-throwing rejections (declined payment, failed validation) need <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current().setStatus(StatusCode.ERROR)</code>.</p>
       </div>
-      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Prefer OTel semantic conventions</p>
-        <p>Use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">http.response.status_code</code> not <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">responseCode</code>. Standard names make your traces queryable by anyone and compatible with every observability backend.</p>
+      <div style="padding:10px 16px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:2px">Use tail sampling in production</p>
+        <p>Always keep errors and slow traces. Drop healthy fast ones. Nobody looks at the rest.</p>
       </div>
-      <div style="padding:10px 14px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--forest);margin-bottom:3px">Keep tail sampling in production</p>
-        <p>Always keep 100% of ERROR spans and slow traces. Drop healthy fast traces. Netflix's lesson: &lt;1% of traces are ever looked at — store that 1% well.</p>
+      <div style="padding:10px 16px;background:var(--bg2);border-left:3px solid var(--green-text);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--forest);margin-bottom:2px">Use <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">@ObservationKeyValue</code> for start-time values</p>
+        <p>Parameter annotations reach metric tags and tail samplers. <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">Span.current()</code> inside the method body reaches the span only.</p>
       </div>
     </div>
   </div>
@@ -937,27 +859,27 @@ span.addLink(SpanContext.create(
 <!-- 22 — don'ts: common mistakes -->
 <section class="slide">
   <div class="pbanner">Part 1</div>
-  <div class="eyebrow">What not to do</div>
-  <h2>More spans ≠ better observability.<br>More noise = <span style="color:var(--red)">harder to find the signal.</span></h2>
-  <div class="cols2" style="margin-top:16px;gap:14px;align-items:start">
+  <div class="eyebrow">Don'ts</div>
+  <h2>More spans ≠ better observability.</h2>
+  <div class="cols2" style="margin-top:18px;gap:14px;align-items:start">
     <div style="display:flex;flex-direction:column;gap:8px">
-      <div style="padding:10px 14px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--red);margin-bottom:3px">Span explosion — wrapping every function</p>
-        <p>A financial services team disabled HTTP auto-instrumentation entirely because it added hundreds of spans per request with no diagnostic value, drowning useful business spans. Instrument operations, not implementation details. <span style="color:var(--mu)">OTel End-User Q&A, 2023</span></p>
+      <div style="padding:10px 16px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--red);margin-bottom:2px">Don't wrap every function</p>
+        <p>Hundreds of low-value spans drown the useful ones. One team disabled all HTTP auto-instrumentation for exactly this reason.</p>
       </div>
-      <div style="padding:10px 14px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--red);margin-bottom:3px">High-cardinality data in span <em>names</em></p>
-        <p>OTel default limit: 128 attributes per span. But span names are indexed differently — every unique name is a new bucket in your trace backend. <code style="background:var(--bg3);padding:1px 4px;border-radius:3px">get-rate-EUR-BRL-route-721</code> creates unbounded index entries. Put variable data in attributes.</p>
+      <div style="padding:10px 16px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--red);margin-bottom:2px">Don't put dynamic data in span names</p>
+        <p><code style="background:var(--bg3);padding:1px 4px;border-radius:3px">get-rate-EUR-BRL-route-721</code> creates a new index bucket per unique value. Put it in an attribute instead.</p>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <div style="padding:10px 14px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--red);margin-bottom:3px">PII or secrets in span attributes</p>
-        <p>Trace data is indexed, queryable, and retained. Names, account numbers, auth tokens, API keys — none of these belong in span attributes. Breaches telemetry isolation and likely violates GDPR and internal data policies.</p>
+      <div style="padding:10px 16px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--red);margin-bottom:2px">Don't put PII or secrets in attributes</p>
+        <p>Traces are indexed, queryable, and retained. Names, account numbers, tokens — none of these belong there.</p>
       </div>
-      <div style="padding:10px 14px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
-        <p style="font-weight:700;color:var(--red);margin-bottom:3px">Tracing as a log replacement</p>
-        <p>Traces show structure and timing. They don't show detailed line-by-line context — what the exception message said, what the SQL query returned, the full stack trace. You still need logs for that. <em>Traces and logs complement each other.</em></p>
+      <div style="padding:10px 16px;background:rgba(192,57,43,.05);border-left:3px solid var(--red);border-radius:0 var(--r) var(--r) 0">
+        <p style="font-weight:700;color:var(--red);margin-bottom:2px">Don't replace logs with traces</p>
+        <p>Traces show structure and timing. Logs show detail — exception messages, SQL results, stack traces. Use both.</p>
       </div>
     </div>
   </div>
@@ -1099,13 +1021,16 @@ span.addLink(SpanContext.create(
     <div>
       <div class="eyebrow">Setup</div>
       <h2>Start your<br>environment</h2>
-      <div class="code" style="margin-top:14px;max-width:100%"><span class="mu"># Start the full stack</span>
+      <div class="code" style="margin-top:14px;max-width:100%"><span class="mu"># 1. Start Colima with enough resources (first time only)</span>
+colima start --cpu 4 --memory 8 --disk 40
+
+<span class="mu"># 2. Start the full stack</span>
 ./start.sh
 
-<span class="mu"># Verify all services are healthy</span>
+<span class="mu"># 3. Verify all 16 services are healthy</span>
 ./scripts/verify-environment.sh
 
-<span class="mu"># Generate baseline traffic</span>
+<span class="mu"># 4. Generate baseline traffic</span>
 ./scripts/generate-traffic.sh</div>
       <p style="margin-top:12px;color:var(--mu)">When ready you'll see the workshop banner. Wait ~30s after first traffic for spans to appear in Grafana.</p>
       <div style="margin-top:10px;padding:8px 12px;background:rgba(13,90,90,.06);border:1px solid rgba(13,90,90,.2);border-radius:8px">
@@ -1516,7 +1441,7 @@ terms.forEach { term ->
 
 </div>
 <div class="progress" id="prog"></div>
-<div class="counter" id="cnt">1 / 39</div>
+<div class="counter" id="cnt">1 / 38</div>
 
 <script>
 const slides = [...document.querySelectorAll('.slide')];
